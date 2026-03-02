@@ -1,8 +1,8 @@
 ## Project
-name: tasty_bytes
+name: autodesk_account_matching
 version: "1.0"
 config-version: 2
-profile: tasty_bytes
+profile: autodesk_account_matching
 
 ## Sources
 model-paths: [models]
@@ -18,7 +18,7 @@ clean-targets: [target, dbt_modules]
 
 ## Models
 models:
-  tasty_bytes:
+  autodesk_account_matching:
     staging:
       +materialized: view
     marts:
