@@ -33,7 +33,7 @@ FW = {
     'enrichment_fill_rate': 100    # Prefer well-populated enrichment fields
 }
 
-def filter_results(session, result_df):
+def filter_results(dbt, session, result_df):
     print("------------------------------------------------------------")
     print("Step 4: Filtering out column-pair results...")
     print("------------------------------------------------------------")
@@ -55,13 +55,13 @@ def filter_results(session, result_df):
     ].copy()
     session.write_pandas(
         filtered,
-        table_name="step4_filtered_column_pairs",
+        table_name="STEP4_FILTERED_COLUMN_PAIRS",
         schema="RAW",
         overwrite=True
     )
     print(f"✔ Filtered from {len(result_df)} → {len(filtered)} candidates.")
     print(f"✔ Filtered results written to Snowflake\n")
-    return session.table("AUTODESK_ACCOUNT_MATCHING_DB.RAW.\"step4_filtered_column_pairs\"")
+    return dbt.ref("raw_pos_step4_filtered_column_pairs")
 
 def model(dbt, session):
     dbt.ref('step3')  # Make it so this runs after step3
@@ -69,6 +69,6 @@ def model(dbt, session):
         packages=['snowflake-snowpark-python','pandas','tqdm','httpx','rapidfuzz','langdetect','snowflake-ml-python'],
         python_version="3.11"
     )
-    result_df = session.table("AUTODESK_ACCOUNT_MATCHING_DB.RAW.\"step3_all_column_pair_features\"")
-    result_df_filtered = filter_results(session, result_df)
+    result_df = dbt.ref("raw_pos_step3_all_column_pair_features")
+    result_df_filtered = filter_results(dbt, session, result_df)
     return result_df_filtered

@@ -137,7 +137,7 @@ The metadata follows:
     response = Complete(model="openai-gpt-4.1", prompt=prompt, options=CompleteOptions(temperature=0, top_p=1, max_tokens=1000))
     return dataset, json.loads(response.replace('```json', '').replace('```','').strip())    
 
-def generate_metadata(session, dfs):
+def generate_metadata(dbt, session, dfs):
     print("------------------------------------------------------------")
     print("Step 2: Generating column metadata and descriptions...")
     print("------------------------------------------------------------")
@@ -163,12 +163,12 @@ def generate_metadata(session, dfs):
     df = df.astype("string")
     session.write_pandas(
         df,
-        table_name="step2_column_metadata_descriptions",
+        table_name="STEP2_COLUMN_METADATA_DESCRIPTIONS",
         schema="RAW",
         overwrite=True
     )
     print(f"✔ Metadata and descriptions written to Snowflake\n")
-    return session.table("AUTODESK_ACCOUNT_MATCHING_DB.RAW.\"step2_column_metadata_descriptions\"")
+    return dbt.ref("raw_pos_step2_column_metadata_descriptions")
 
 def model(dbt, session):
     dbt.config(
@@ -176,6 +176,6 @@ def model(dbt, session):
         python_version="3.11"
     )
     dfs = load_data(dbt)
-    meta_data = generate_metadata(session, dfs)
+    meta_data = generate_metadata(dbt, session, dfs)
     return meta_data
     

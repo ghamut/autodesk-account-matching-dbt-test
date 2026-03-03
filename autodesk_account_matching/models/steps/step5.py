@@ -79,7 +79,7 @@ def gpt_match_row(index_row):
         "justification": lines[1].strip() if len(lines) > 1 else ""
     }
 
-def apply_gpt_decision(session, result_df_filtered):
+def apply_gpt_decision(dbt, session, result_df_filtered):
     print("------------------------------------------------------------")
     print("Step 5: Applying GPT judgment to remaining column matches...")
     print("------------------------------------------------------------")
@@ -94,13 +94,13 @@ def apply_gpt_decision(session, result_df_filtered):
 
     session.write_pandas(
         result_df_filtered,
-        table_name="step5_gpt_column_pair_classification",
+        table_name="STEP5_GPT_COLUMN_PAIR_CLASSIFICATION",
         schema="RAW",
         overwrite=True
     )    
     print(f"✔ GPT assessment complete; {result_df_filtered['chatgpt_decision'].value_counts().get('Yes', 0)} columns were determined to match.")
     print(f"✔ GPT decisions written to Snowflake\n")
-    return session.table("AUTODESK_ACCOUNT_MATCHING_DB.RAW.\"step5_gpt_column_pair_classification\"")
+    return dbt.ref("raw_pos_step5_gpt_column_pair_classification")
 
 def model(dbt, session):
     dbt.ref('step4')  # Make it so this runs after step4
@@ -108,6 +108,6 @@ def model(dbt, session):
         packages=['snowflake-snowpark-python','pandas','tqdm','httpx','rapidfuzz','langdetect','snowflake-ml-python'],
         python_version="3.11"
     )
-    result_df_filtered = session.table("AUTODESK_ACCOUNT_MATCHING_DB.RAW.\"step4_filtered_column_pairs\"")
-    result_df_filtered = apply_gpt_decision(session, result_df_filtered)
+    result_df_filtered = dbt.ref("raw_pos_step4_filtered_column_pairs")
+    result_df_filtered = apply_gpt_decision(dbt, session, result_df_filtered)
     return result_df_filtered

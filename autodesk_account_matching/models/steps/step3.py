@@ -15,6 +15,7 @@ from rapidfuzz import fuzz
 import numpy as np
 from langdetect import detect_langs
 import re
+from functools import lru_cache
 
 MAX_WORKERS = min(64, (os.cpu_count() or 4) * 5)
 FT = {
@@ -73,6 +74,7 @@ def cosine_similarity(vec1, vec2):
     v2 = np.array(vec2)
     return float(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
 
+@lru_cache(maxsize=None)
 def shannon_entropy(df, colname: str):
     # distinct non-null values as strings
     vals = (
@@ -123,8 +125,8 @@ def compute_features(key, dataset, m_key, e_key, meta_data, dfs, results_dict):
     # enrichment_series = dfs[dataset][e_key]
     # enrichment_values = list(map(str, enrichment_series.dropna().unique()))
 
-    master_df = dfs["Master"]
-    enrich_df = dfs[dataset]
+    master_df = dfs["Master"].cache_result()
+    enrich_df = dfs[dataset].cache_result()
     
     master_fill_rate = float(master_df.select(
         avg(when(col(m_key).is_not_null(), 1).otherwise(0))
@@ -222,7 +224,7 @@ def compute_features(key, dataset, m_key, e_key, meta_data, dfs, results_dict):
     sub_result['status'] = 'processed'
     return key, sub_result
 
-def extract_features(session, meta_data, dfs):
+def extract_features(dbt, session, meta_data, dfs):
     print("------------------------------------------------------------")
     print("Step 3: Computing column-pair features...")
     print("------------------------------------------------------------")
@@ -254,13 +256,13 @@ def extract_features(session, meta_data, dfs):
     df = pd.DataFrame(list(results_dict.values()))
     session.write_pandas(
         df,
-        table_name="step3_all_column_pair_features",
+        table_name="STEP3_ALL_COLUMN_PAIR_FEATURES",
         schema="RAW",
         overwrite=True
     )
     print(f"✔ Feature computation complete on {len(results_dict)} column pairs.")
     print(f"✔ Features written to Snowflake\n")
-    return session.table("AUTODESK_ACCOUNT_MATCHING_DB.RAW.\"step3_all_column_pair_features\"")
+    return dbt.ref("raw_pos_step3_all_column_pair_features")
 
 def model(dbt, session):
     dbt.ref('step2')  # Make it so this runs after step2
@@ -269,6 +271,6 @@ def model(dbt, session):
         python_version="3.11"
     )
     dfs = load_data(dbt)
-    meta_data = session.table("AUTODESK_ACCOUNT_MATCHING_DB.RAW.\"step2_column_metadata_descriptions\"")
-    result_df = extract_features(session, meta_data, dfs)
+    meta_data = dbt.ref("raw_pos_step2_column_metadata_descriptions")
+    result_df = extract_features(dbt, session, meta_data, dfs)
     return result_df
