@@ -39,11 +39,11 @@ def load_data(dbt):
     print("------------------------------------------------------------")
 
     dfs = {
-        'Master': dbt.ref("raw_pos_master"),
-        'ENR 250': dbt.ref("raw_pos_enr_250"),
-        'ENR 400': dbt.ref("raw_pos_enr_400"),
-        'ENR 600': dbt.ref("raw_pos_enr_600"),
-        'Global data': dbt.ref("raw_pos_global_data"),
+        'Master': dbt.ref("raw_pos_master").cache_result(),
+        'ENR 250': dbt.ref("raw_pos_enr_250").cache_result(),
+        'ENR 400': dbt.ref("raw_pos_enr_400").cache_result(),
+        'ENR 600': dbt.ref("raw_pos_enr_600").cache_result(),
+        'Global data': dbt.ref("raw_pos_global_data").cache_result(),
     }
     if 'Master' not in dfs:
         raise ValueError("Master dataset not found in loaded data.")
@@ -61,13 +61,13 @@ def find_filter_columns(matches_df, overlap_threshold):
     matches_df = matches_df.to_pandas()
     filter_fields, mapped_fields = {}, {}
     for _, row in matches_df.iterrows():
-        pair = (row['enrichment_column'], row['master_column'])
-        mapped_fields.setdefault(row['enrichment_dataset'], []).append(pair)
+        pair = (row['enrichment_column'.upper()], row['master_column'.upper()])
+        mapped_fields.setdefault(row['enrichment_dataset'.upper()], []).append(pair)
         if (
-            row['percent_enrichment_in_master'] >= overlap_threshold or
-            row['percent_master_in_enrichment'] >= overlap_threshold
+            row['percent_enrichment_in_master'.upper()] >= overlap_threshold or
+            row['percent_master_in_enrichment'.upper()] >= overlap_threshold
         ):
-            filter_fields.setdefault(row['enrichment_dataset'], []).append(pair)
+            filter_fields.setdefault(row['enrichment_dataset'.upper()], []).append(pair)
     return mapped_fields, filter_fields
 
 def translate_non_english_columns(session, dfs, mapped_fields_by_dataset):
@@ -252,7 +252,7 @@ AS
 {dollars};"""
                     session.sql(create_udf_sql).collect()
                     out[dataset] = out[dataset].with_column(
-                        f"{e_col}__transformed",
+                        f"{e_col}__transformed".upper(),
                         when(col(e_col).is_null(), None)
                           .otherwise(call_function(fn, col(e_col).cast("string")))
                     )
@@ -295,12 +295,12 @@ def filter_rows(dfs, dataset, mappings, filters = None):
 
     # Add row indexes (do not materialize data in Python)
     w = Window.order_by(F.lit(1))
-    df_e_idx = df_e_base.with_column("enrichment_row_index", F.row_number().over(w))
-    df_m_idx = df_m_base.with_column("master_row_index", F.row_number().over(w))
+    df_e_idx = df_e_base.with_column("enrichment_row_index".upper(), F.row_number().over(w))
+    df_m_idx = df_m_base.with_column("master_row_index".upper(), F.row_number().over(w))
 
     # Column renames for mapping columns (like the Pandas version)
-    e_map = {e: f"{e}_e" for e, _ in mappings}
-    m_map = {m: f"{m}_m" for _, m in mappings}
+    e_map = {e: f"{e}_e".upper() for e, _ in mappings}
+    m_map = {m: f"{m}_m".upper() for _, m in mappings}
 
     e_cols = df_e_base.columns
     m_cols = df_m_base.columns
@@ -312,13 +312,13 @@ def filter_rows(dfs, dataset, mappings, filters = None):
     # Emulate Pandas merge suffixes for overlapping names (Snowflake cannot keep dup names)
     e_names = set(e_pre.values())
     m_names = set(m_pre.values())
-    overlap = (e_names & m_names) - {"enrichment_row_index", "master_row_index"}
+    overlap = (e_names & m_names) - {"enrichment_row_index".upper(), "master_row_index".upper()}
 
     def _suffix(name: str, sfx: str) -> str:
         return name if name.endswith(sfx) else f"{name}{sfx}"
 
-    e_final = {c: (_suffix(e_pre[c], "_e") if e_pre[c] in overlap else e_pre[c]) for c in e_cols}
-    m_final = {c: (_suffix(m_pre[c], "_m") if m_pre[c] in overlap else m_pre[c]) for c in m_cols}
+    e_final = {c: (_suffix(e_pre[c], "_e".upper()) if e_pre[c] in overlap else e_pre[c]) for c in e_cols}
+    m_final = {c: (_suffix(m_pre[c], "_m".upper()) if m_pre[c] in overlap else m_pre[c]) for c in m_cols}
 
     # Build the paired rows (blocking join if filters; else full pairing)
     if filters:
@@ -330,15 +330,15 @@ def filter_rows(dfs, dataset, mappings, filters = None):
 
     # Select indices + all columns with the computed aliases
     select_exprs = [
-        F.col("enrichment_row_index"),
-        F.col("master_row_index"),
-        *[F.col(f"l.{c}").as_(e_final[c]) for c in e_cols],
-        *[F.col(f"r.{c}").as_(m_final[c]) for c in m_cols],
+        F.col("enrichment_row_index".upper()),
+        F.col("master_row_index".upper()),
+        *[F.col(f"l.{c}".upper()).as_(e_final[c]) for c in e_cols],
+        *[F.col(f"r.{c}".upper()).as_(m_final[c]) for c in m_cols],
     ]
     # ensure unambiguous left/right references
     paired = paired.select(
-        F.col("enrichment_row_index"),
-        F.col("master_row_index"),
+        F.col("enrichment_row_index".upper()),
+        F.col("master_row_index".upper()),
         *[df_e_idx[c].as_(e_final[c]) for c in e_cols],
         *[df_m_idx[c].as_(m_final[c]) for c in m_cols],
     )
@@ -353,8 +353,8 @@ def filter_rows(dfs, dataset, mappings, filters = None):
 
             # If those names were also in overlap, they may have been suffixed further;
             # for mapped cols they already end with _e/_m, so overlap suffixing leaves them unchanged.
-            e_name = _suffix(e_name, "_e") if e_name in overlap else e_name
-            m_name = _suffix(m_name, "_m") if m_name in overlap else m_name
+            e_name = _suffix(e_name, "_e".upper()) if e_name in overlap else e_name
+            m_name = _suffix(m_name, "_m".upper()) if m_name in overlap else m_name
 
             val_e = F.lower(F.trim(F.col(e_name).cast("string")))
             val_m = F.lower(F.trim(F.col(m_name).cast("string")))
@@ -390,11 +390,11 @@ def collect_matching_rows(df_cross, mappings, dataset, filter_fields_by_dataset,
     score_exprs = []
 
     for e_col, m_col in non_filters:
-        e_name = f"{e_col}_e"
-        m_name = f"{m_col}_m"
+        e_name = f"{e_col}_e".upper()
+        m_name = f"{m_col}_m".upper()
 
         both_present = F.col(e_name).is_not_null() & F.col(m_name).is_not_null()
-        score_name = f"score__{m_col}"
+        score_name = f"score__{m_col}".upper()
         score_col_names.append(score_name)
 
         score_exprs.append(
@@ -420,34 +420,34 @@ def collect_matching_rows(df_cross, mappings, dataset, filter_fields_by_dataset,
     enrichment_parts = [
         F.concat(
             F.lit(f"{m}: "),
-            F.coalesce(F.col(f"{e}_e").cast("string"), F.lit("nan")),
+            F.coalesce(F.col(f"{e}_e".upper()).cast("string"), F.lit("nan")),
         )
         for e, m in mappings
     ]
     master_parts = [
         F.concat(
             F.lit(f"{m}: "),
-            F.coalesce(F.col(f"{m}_m").cast("string"), F.lit("nan")),
+            F.coalesce(F.col(f"{m}_m".upper()).cast("string"), F.lit("nan")),
         )
         for _, m in mappings
     ]
 
     # Build the raw similarity array (may include NULLs); we’ll drop NULLs via FLATTEN
-    similarity_raw = F.array_construct(*[F.col(sc) for sc in score_col_names]).as_("similarity_raw")
+    similarity_raw = F.array_construct(*[F.col(sc) for sc in score_col_names]).as_("similarity_raw".upper())
 
     df_out = df_kept.select(
-        F.lit("Master").as_("master_dataset"),
-        F.lit(dataset).as_("enrichment_dataset"),
-        F.concat_ws(F.lit("; "), *enrichment_parts).as_("enrichment_evidence"),
-        F.concat_ws(F.lit("; "), *master_parts).as_("master_evidence"),
+        F.lit("Master").as_("master_dataset".upper()),
+        F.lit(dataset).as_("enrichment_dataset".upper()),
+        F.concat_ws(F.lit("; "), *enrichment_parts).as_("enrichment_evidence".upper()),
+        F.concat_ws(F.lit("; "), *master_parts).as_("master_evidence".upper()),
         similarity_raw,
-        F.col("enrichment_row_index"),
-        F.col("master_row_index"),
+        F.col("enrichment_row_index".upper()),
+        F.col("master_row_index".upper()),
     )
 
     # Flatten the similarity_raw array; drop NULLs to match Pandas `similarities.append(...)`
     # join_table_function without alias kwarg (compatible with older Snowpark)
-    df_flat = df_out.join_table_function("flatten", F.col("similarity_raw"))
+    df_flat = df_out.join_table_function("flatten", F.col("similarity_raw".upper()))
 
     # In FLATTEN output, columns include VALUE and INDEX; keep only non-null VALUE scores
     df_flat = df_flat.filter(F.col("VALUE").is_not_null())
@@ -456,18 +456,18 @@ def collect_matching_rows(df_cross, mappings, dataset, filter_fields_by_dataset,
     # - similarity: ARRAY_AGG(VALUE) ordered by INDEX to preserve mapping order (closest to Pandas list order)
     # - avg_similarity: AVG(VALUE) == np.mean(similarities)
     df_final = (
-        df_flat.group_by("enrichment_row_index", "master_row_index")
+        df_flat.group_by("enrichment_row_index".upper(), "master_row_index".upper())
         .agg(
-            F.any_value("master_dataset").as_("master_dataset"),
-            F.any_value("enrichment_dataset").as_("enrichment_dataset"),
-            F.any_value("enrichment_evidence").as_("enrichment_evidence"),
-            F.any_value("master_evidence").as_("master_evidence"),
-            F.array_agg(F.col("VALUE").cast("float")).within_group(F.col("INDEX")).as_("similarity"),
-            F.avg(F.col("VALUE").cast("float")).as_("avg_similarity"),
-            F.count(F.lit(1)).as_("similarity_count"),
+            F.any_value("master_dataset".upper()).as_("master_dataset".upper()),
+            F.any_value("enrichment_dataset".upper()).as_("enrichment_dataset".upper()),
+            F.any_value("enrichment_evidence".upper()).as_("enrichment_evidence".upper()),
+            F.any_value("master_evidence".upper()).as_("master_evidence".upper()),
+            F.array_agg(F.col("VALUE").cast("float")).within_group(F.col("INDEX")).as_("similarity".upper()),
+            F.avg(F.col("VALUE").cast("float")).as_("avg_similarity".upper()),
+            F.count(F.lit(1)).as_("similarity_count".upper()),
         )
-        .filter(F.col("similarity_count") > F.lit(0))  # "similarities and ..." from Pandas
-        .drop("similarity_count")
+        .filter(F.col("similarity_count".upper()) > F.lit(0))  # "similarities and ..." from Pandas
+        .drop("similarity_count".upper())
     )
 
     return df_final
@@ -498,19 +498,19 @@ def fuzzy_match_rows(dfs, final_matches, overlap_threshold=75, fuzzy_similarity_
     if out_df is None:
         any_df = next(iter(dfs.values()))
         out_df = any_df.limit(0).select(
-            F.lit("Master").as_("master_dataset"),
-            F.lit(None).cast("string").as_("enrichment_dataset"),
-            F.lit(None).cast("string").as_("enrichment_evidence"),
-            F.lit(None).cast("string").as_("master_evidence"),
-            F.lit(None).cast("array").as_("similarity"),
-            F.lit(None).cast("float").as_("avg_similarity"),
-            F.lit(None).cast("number").as_("enrichment_row_index"),
-            F.lit(None).cast("number").as_("master_row_index"),
+            F.lit("Master").as_("master_dataset".upper()),
+            F.lit(None).cast("string").as_("enrichment_dataset".upper()),
+            F.lit(None).cast("string").as_("enrichment_evidence".upper()),
+            F.lit(None).cast("string").as_("master_evidence".upper()),
+            F.lit(None).cast("array").as_("similarity".upper()),
+            F.lit(None).cast("float").as_("avg_similarity".upper()),
+            F.lit(None).cast("number").as_("enrichment_row_index".upper()),
+            F.lit(None).cast("number").as_("master_row_index".upper()),
         )
 
     return out_df
 
-def get_fuzzy_match_rows(session, dfs, final_matches):
+def get_fuzzy_match_rows(dbt, session, dfs, final_matches):
     # TODO: Ensure the ordering of indices is deterministic across runs (likely add another column to all datasets for an index that can be used)
     print("------------------------------------------------------------")
     print("Step 9: Fuzzy matching rows across datasets...")
@@ -519,10 +519,10 @@ def get_fuzzy_match_rows(session, dfs, final_matches):
     matches_df = fuzzy_match_rows(dfs, final_matches)
 
     matches_df = matches_df.sort(
-        F.col("avg_similarity").desc_nulls_last(),
+        F.col("avg_similarity".upper()).desc_nulls_last(),
     )
 
-    target_table = 'AUTODESK_ACCOUNT_MATCHING_DB.RAW."step9_final_transformed_dfs"'
+    target_table = 'AUTODESK_ACCOUNT_MATCHING_DB.RAW.STEP9_FINAL_TRANSFORMED_DFS'
 
     matches_df.write.mode("overwrite").save_as_table(target_table)
 
@@ -530,7 +530,7 @@ def get_fuzzy_match_rows(session, dfs, final_matches):
     print(f"✔ Fuzzy matching complete; {candidate_count} candidate row matches found.")
     print("✔ Final transformed DataFrames with fuzzy matches written to Snowflake\n")
 
-    return session.table(target_table)
+    return dbt.ref("raw_pos_step9_final_transformed_dfs")
 
 def model(dbt, session):
     dbt.ref('step6')  # Make it so this runs after step6
@@ -539,10 +539,10 @@ def model(dbt, session):
         python_version="3.11"
     )
     dfs = load_data(dbt)
-    final_matches = session.table("AUTODESK_ACCOUNT_MATCHING_DB.RAW.\"step6_final_column_matches\"")
+    final_matches = session.table("raw_pos_step6_final_column_matches")
 
     # Since we have to return a table, we do these three steps (Steps 7, 8, 9) together
     dfs = translate_nonenglish_entries(session, dfs, final_matches)
     dfs = apply_gpt_column_transforms(session, dfs, final_matches)
-    matches = get_fuzzy_match_rows(session, dfs, final_matches)
+    matches = get_fuzzy_match_rows(dbt, session, dfs, final_matches)
     return matches
