@@ -16,6 +16,7 @@ import numpy as np
 from langdetect import detect_langs
 import re
 
+# TODO: Move to config
 MAX_WORKERS = min(64, (os.cpu_count() or 4) * 5)
 FT = {
     'max_avg_length_diff': 12,              # Discard columns with large difference in value length
