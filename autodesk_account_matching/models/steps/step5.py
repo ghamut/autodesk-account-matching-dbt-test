@@ -92,6 +92,7 @@ def apply_gpt_decision(dbt, session, result_df_filtered):
             result_df_filtered.at[result["index"], 'chatgpt_decision'] = result["decision"]
             result_df_filtered.at[result["index"], 'chatgpt_justification'] = result["justification"]
 
+    result_df_filtered.columns = result_df_filtered.columns.str.upper()
     session.write_pandas(
         result_df_filtered,
         table_name="STEP5_GPT_COLUMN_PAIR_CLASSIFICATION",

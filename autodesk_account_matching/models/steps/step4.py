@@ -53,6 +53,7 @@ def filter_results(dbt, session, result_df):
           (result_df['master_column'] == result_df['enrichment_column'])) &
         (result_df['master_column'] != result_df['enrichment_column'])
     ].copy()
+    filtered.columns = filtered.columns.str.upper()
     session.write_pandas(
         filtered,
         table_name="STEP4_FILTERED_COLUMN_PAIRS",

@@ -15,7 +15,6 @@ from rapidfuzz import fuzz
 import numpy as np
 from langdetect import detect_langs
 import re
-from functools import lru_cache
 
 MAX_WORKERS = min(64, (os.cpu_count() or 4) * 5)
 FT = {
@@ -40,11 +39,11 @@ def load_data(dbt):
     print("------------------------------------------------------------")
 
     dfs = {
-        'Master': dbt.ref("raw_pos_master"),
-        'ENR 250': dbt.ref("raw_pos_enr_250"),
-        'ENR 400': dbt.ref("raw_pos_enr_400"),
-        'ENR 600': dbt.ref("raw_pos_enr_600"),
-        'Global data': dbt.ref("raw_pos_global_data"),
+        'Master': dbt.ref("raw_pos_master").cache_result(),
+        'ENR 250': dbt.ref("raw_pos_enr_250").cache_result(),
+        'ENR 400': dbt.ref("raw_pos_enr_400").cache_result(),
+        'ENR 600': dbt.ref("raw_pos_enr_600").cache_result(),
+        'Global data': dbt.ref("raw_pos_global_data").cache_result(),
     }
     if 'Master' not in dfs:
         raise ValueError("Master dataset not found in loaded data.")
@@ -74,7 +73,6 @@ def cosine_similarity(vec1, vec2):
     v2 = np.array(vec2)
     return float(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
 
-@lru_cache(maxsize=None)
 def shannon_entropy(df, colname: str):
     # distinct non-null values as strings
     vals = (
@@ -125,8 +123,8 @@ def compute_features(key, dataset, m_key, e_key, meta_data, dfs, results_dict):
     # enrichment_series = dfs[dataset][e_key]
     # enrichment_values = list(map(str, enrichment_series.dropna().unique()))
 
-    master_df = dfs["Master"].cache_result()
-    enrich_df = dfs[dataset].cache_result()
+    master_df = dfs["Master"]
+    enrich_df = dfs[dataset]
     
     master_fill_rate = float(master_df.select(
         avg(when(col(m_key).is_not_null(), 1).otherwise(0))
@@ -149,7 +147,6 @@ def compute_features(key, dataset, m_key, e_key, meta_data, dfs, results_dict):
             sub_result['description_embedding_similarity'] = cosine_similarity(vec1, vec2)
         except Exception as e:
             sub_result['description_embedding_similarity'] = None
-            sub_result['embedding_error'] = str(e)
 
     # master_values = precomputed_master[m_key]["values"]
     # overlap = set(master_values) & set(enrichment_values)
@@ -254,6 +251,7 @@ def extract_features(dbt, session, meta_data, dfs):
     # print(results_dict)
     
     df = pd.DataFrame(list(results_dict.values()))
+    df.columns = df.columns.str.upper()
     session.write_pandas(
         df,
         table_name="STEP3_ALL_COLUMN_PAIR_FEATURES",
