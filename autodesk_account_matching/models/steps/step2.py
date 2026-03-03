@@ -1,6 +1,37 @@
-from openai import OpenAI, RateLimitError, APIError, Timeout
+import snowflake.snowpark as snowpark
+from snowflake.cortex import Complete, CompleteOptions
+from snowflake.snowpark.functions import col, avg, when, length, ln, lit, sum as sf_sum, count, coalesce, sql_expr, udf, call_function
+from snowflake.snowpark import functions as F
+from snowflake.snowpark.window import Window
+from snowflake.snowpark.types import BooleanType, StringType
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import pandas as pd
+from tqdm import tqdm
+import os
+from time import time
+import json
+import random
+from rapidfuzz import fuzz
+import numpy as np
+from langdetect import detect_langs
+import re
 
-client = OpenAI(api_key=...)
+MAX_WORKERS = min(64, (os.cpu_count() or 4) * 5)
+FT = {
+    'max_avg_length_diff': 12,              # Discard columns with large difference in value length
+    'min_fill_rate': 0.25,                  # Discard sparse columns
+    'min_description_similarity': 0.3,      # Minimum cosine similarity between description embeddings
+    'high_similarity_override_threshold': 0.8, # Allows keeping mismatched types if textually very similar
+    'max_entropy_gap': 2                    # Penalize columns with very different value diversity
+}
+FW = {
+    'fuzzy_ratio': 25,             # Importance of raw name similarity
+    'overlap_jaccard': 100,        # Shared value overlap (set-wise Jaccard index)
+    'avg_length_diff': 50,         # Penalize large differences in value length
+    'entropy_gap': 10,             # Penalize dissimilar information entropy
+    'master_fill_rate': 100,       # Prefer well-populated master fields
+    'enrichment_fill_rate': 100    # Prefer well-populated enrichment fields
+}
 
 def load_data(dbt):
     print("------------------------------------------------------------")
@@ -91,32 +122,19 @@ def generate_column_stats(table_df, most_common=10, sample_n=1_000):
 
     return col_info
 
-def describe_dataset(dataset, meta_data, max_retries=3):
-    for attempt in range(max_retries):
-        try:
-            response = client.chat.completions.create(
-                model= "gpt-4o-2024-08-06",
-                max_tokens=1000,
-                temperature=0,
-                seed=43,
-                messages=[
-                    {"role": "system", "content": "Do not use code to answer the question. Provide only code as your response, no explanations. Do not use markdown formatting."},
-                    {"role": "user", "content": f"""Forget all previous instructions.
+def describe_dataset(dataset, meta_data):
+    prompt = """Do not use code to answer the question. Provide only code as your response, no explanations. Do not use markdown formatting.
 You will be provided with metadata for a set of columns in a dataset.
 Return a dictionary with one key for each column in the dataset. 
 For each column, provide a brief description given the Column Name, Example Values, and your best judgement.
 Prioritize the Example Values when generating the description, and use the Column Name as a secondary reference.
-example output: {{"<column1_name>": "<description1>", "<column2_name>" : "<description2>" }}
+Example output: {"<column1_name>": "<description1>", "<column2_name>": "<description2>"}
 The metadata follows:
-```json
+"""+f"""```json
 {json.dumps(meta_data[dataset])}
-```"""}
-                ]
-            )
-            return dataset, json.loads(response.choices[0].message.content.strip())
-        except (RateLimitError, Timeout, APIError, ValueError) as e:
-            time.sleep(2 ** attempt + random.uniform(0, 1))
-    return dataset, {}
+```"""
+    response = Complete(model="openai-gpt-4.1", prompt=prompt, options=CompleteOptions(temperature=0, top_p=1, max_tokens=1000))
+    return dataset, json.loads(response.replace('```json', '').replace('```','').strip())    
 
 def generate_metadata(session, dfs):
     print("------------------------------------------------------------")
@@ -152,6 +170,10 @@ def generate_metadata(session, dfs):
     return session.table("AUTODESK_ACCOUNT_MATCHING_DB.RAW.\"step2_column_metadata_descriptions\"")
 
 def model(dbt, session):
+    dbt.config(
+        packages=['snowflake-snowpark-python','pandas','tqdm','httpx','rapidfuzz','langdetect','snowflake-ml-python'],
+        python_version="3.11"
+    )
     dfs = load_data(dbt)
     meta_data = generate_metadata(session, dfs)
     return meta_data
