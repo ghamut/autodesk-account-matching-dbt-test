@@ -539,7 +539,7 @@ def model(dbt, session):
         python_version="3.11"
     )
     dfs = load_data(dbt)
-    final_matches = session.table("raw_pos_step6_final_column_matches")
+    final_matches = dbt.ref("raw_pos_step6_final_column_matches")
 
     # Since we have to return a table, we do these three steps (Steps 7, 8, 9) together
     dfs = translate_nonenglish_entries(session, dfs, final_matches)

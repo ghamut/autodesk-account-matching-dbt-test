@@ -171,6 +171,6 @@ def model(dbt, session):
         python_version="3.11"
     )
     dfs = load_data(dbt)
-    result_df_filtered = session.table("raw_pos_step5_gpt_column_pair_classification")
+    result_df_filtered = dbt.ref("raw_pos_step5_gpt_column_pair_classification")
     final_matches = get_best_column_matches(dbt, session, result_df_filtered, dfs)
     return final_matches

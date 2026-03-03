@@ -33,7 +33,7 @@ FW = {
     'enrichment_fill_rate': 100    # Prefer well-populated enrichment fields
 }
 
-def apply_llm_judgment_on_account_matches(matches):
+def apply_llm_judgment_on_account_matches(dbt, matches):
     print("------------------------------------------------------------")
     print("Step 10: Applying final LLM pass to determine best matches...")
     print("------------------------------------------------------------")
@@ -99,9 +99,9 @@ def apply_llm_judgment_on_account_matches(matches):
         .with_column("final_llm_decision", llm_obj["decision"].cast("string"))
         .with_column("final_llm_justification", llm_obj["justification"].cast("string"))
     )
-
+    out_df.columns = out_df.columns.str.upper()
     # Persist results fully in Snowflake (no local materialization).
-    out_df.write.mode("overwrite").save_as_table('AUTODESK_ACCOUNT_MATCHING_DB.RAW."step10_final_llm_row_matches"')
+    out_df.write.mode("overwrite").save_as_table('AUTODESK_ACCOUNT_MATCHING_DB.RAW.STEP10_FINAL_LLM_ROW_MATCHES')
 
     # Small aggregate for the same console summary (only a few rows collected).
     counts_rows = (
@@ -119,15 +119,15 @@ def apply_llm_judgment_on_account_matches(matches):
     )
     print("✔ Final LLM match decisions written to Snowflake\n")
 
-    return out_df
+    return dbt.ref('raw_pos_step10_final_llm_row_matches')
 
 def model(dbt, session):
     # TODO: Adjust thresholds to get some Yes values
-    dbt.ref('step7_8_9')  # Make it so this runs after step9
+    # dbt.ref('step7_8_9')  # Make it so this runs after step9
     dbt.config(
         packages=['snowflake-snowpark-python','pandas','tqdm','httpx','rapidfuzz','langdetect','snowflake-ml-python'],
         python_version="3.11"
     )
-    matches = session.table('AUTODESK_ACCOUNT_MATCHING_DB.RAW."step9_final_transformed_dfs"')
-    matches = apply_llm_judgment_on_account_matches(matches)
+    matches = dbt.ref('raw_pos_step9_final_transformed_dfs')
+    matches = apply_llm_judgment_on_account_matches(dbt, matches)
     return matches
