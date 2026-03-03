@@ -121,5 +121,7 @@ def tsr(s1, s2):
     return float(token_set_ratio(str(s1), str(s2)))
 $$;
 
+-- TODO: Embed the concatenations of the key (test all the options); between comparing indiv. vs. concatenated
+
 -- setup completion note
 SELECT 'autodesk_account_matching_db setup is now complete' AS note;
