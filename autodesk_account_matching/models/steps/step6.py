@@ -55,46 +55,46 @@ def extract_best_column_matches(result_df_filtered, dfs, weight_map=None):
     
     if weight_map is None:
         weight_map = {
-            'fuzzy_ratio': FW['fuzzy_ratio'],
-            'overlap_jaccard': FW['overlap_jaccard'],
-            'avg_length_diff': FW['avg_length_diff'],
-            'entropy_gap': FW['entropy_gap'],
-            'master_fill_rate': FW['master_fill_rate'],
-            'enrichment_fill_rate': FW['enrichment_fill_rate']
+            'fuzzy_ratio'.upper(): FW['fuzzy_ratio'],
+            'overlap_jaccard'.upper(): FW['overlap_jaccard'],
+            'avg_length_diff'.upper(): FW['avg_length_diff'],
+            'entropy_gap'.upper(): FW['entropy_gap'],
+            'master_fill_rate'.upper(): FW['master_fill_rate'],
+            'enrichment_fill_rate'.upper(): FW['enrichment_fill_rate']
         }
 
     # Step 1: Filter to only rows where ChatGPT said "Yes"
-    df = result_df_filtered[result_df_filtered['chatgpt_decision'] == 'Yes'].copy()
+    df = result_df_filtered[result_df_filtered['chatgpt_decision'.upper()] == 'Yes'].copy()
 
     # Step 2: Compute weighted scores
-    grouped = df.groupby(['master_column', 'enrichment_dataset'])
+    grouped = df.groupby(['master_column'.upper(), 'enrichment_dataset'.upper()])
     score_df = (
         grouped[list(weight_map.keys())]
         .mean()
         .mul(pd.Series(weight_map))
         .sum(axis=1)
-        .reset_index(name='weighted_score')
+        .reset_index(name='weighted_score'.upper())
     )
-    df = df.merge(score_df, on=['master_column', 'enrichment_dataset'], how='left')
+    df = df.merge(score_df, on=['master_column'.upper(), 'enrichment_dataset'.upper()], how='left')
 
     # Step 3: Keep top match per (master_column, enrichment_dataset)
     best_matches = df.loc[
-        df.groupby(['master_column', 'enrichment_dataset'])['weighted_score'].idxmax()
+        df.groupby(['master_column'.upper(), 'enrichment_dataset'.upper()])['weighted_score'.upper()].idxmax()
     ]
 
     # Step 4: Keep top match per (enrichment_dataset, enrichment_column)
     best_matches_grouped = best_matches.loc[
-        best_matches.groupby(['enrichment_dataset', 'enrichment_column'])['weighted_score'].idxmax()
+        best_matches.groupby(['enrichment_dataset'.upper(), 'enrichment_column'.upper()])['weighted_score'.upper()].idxmax()
     ].copy()
 
     # Step 5: Cluster enrichment columns associated with each master
     master_related = (
-        best_matches_grouped[best_matches_grouped['enrichment_dataset'] == 'Master']
-        .groupby('master_column')['enrichment_column']
+        best_matches_grouped[best_matches_grouped['enrichment_dataset'.upper()] == 'Master']
+        .groupby('master_column'.upper())['enrichment_column'.upper()]
         .agg(lambda x: sorted(set(x)))
     )
 
-    best_matches_grouped['enrichment_candidates'] = best_matches_grouped['master_column'].apply(
+    best_matches_grouped['enrichment_candidates'.upper()] = best_matches_grouped['master_column'.upper()].apply(
         lambda mc: ', '.join(sorted(set(master_related.get(mc, []) + [mc])))
     )
 
@@ -102,7 +102,7 @@ def extract_best_column_matches(result_df_filtered, dfs, weight_map=None):
     percent_master = []
     percent_enrichment = []
     for _, row in best_matches_grouped.iterrows():
-        ec, ed, mc = row['enrichment_column'], row['enrichment_dataset'], row['master_column']
+        ec, ed, mc = row['enrichment_column'.upper()], row['enrichment_dataset'.upper()], row['master_column'.upper()]
         # edata = dfs[ed][ec].dropna().unique()
         # mdata = dfs['Master'][mc].dropna().unique()
         # intersection = set(edata) & set(mdata)
@@ -131,38 +131,38 @@ def extract_best_column_matches(result_df_filtered, dfs, weight_map=None):
         percent_master.append(100 * intersection_count / master_unique_nonnull if master_unique_nonnull > 0 else 0)
         percent_enrichment.append(100 * intersection_count / enrich_unique_nonnull if enrich_unique_nonnull > 0 else 0)
 
-    best_matches_grouped['percent_master_in_enrichment'] = percent_master
-    best_matches_grouped['percent_enrichment_in_master'] = percent_enrichment
+    best_matches_grouped['percent_master_in_enrichment'.upper()] = percent_master
+    best_matches_grouped['percent_enrichment_in_master'.upper()] = percent_enrichment
 
     # Step 7: Return best rows per enrichment cluster (excluding enrichment_dataset == 'Master')
     final = (
-        best_matches_grouped[best_matches_grouped['enrichment_dataset'] != 'Master']
-        .loc[lambda df: df.groupby(['enrichment_dataset', 'enrichment_candidates'])['weighted_score'].idxmax()]
+        best_matches_grouped[best_matches_grouped['enrichment_dataset'.upper()] != 'Master']
+        .loc[lambda df: df.groupby(['enrichment_dataset'.upper(), 'enrichment_candidates'.upper()])['weighted_score'.upper()].idxmax()]
     )
 
     return final[[
-        'master_column',
-        'enrichment_dataset',
-        'enrichment_column',
-        'enrichment_candidates',
-        'weighted_score',
-        'percent_master_in_enrichment',
-        'percent_enrichment_in_master'
+        'master_column'.upper(),
+        'enrichment_dataset'.upper(),
+        'enrichment_column'.upper(),
+        'enrichment_candidates'.upper(),
+        'weighted_score'.upper(),
+        'percent_master_in_enrichment'.upper(),
+        'percent_enrichment_in_master'.upper()
     ]]
 
-def get_best_column_matches(session, result_df_filtered, dfs):     
+def get_best_column_matches(dbt, session, result_df_filtered, dfs):     
     print("------------------------------------------------------------")
     print("Step 6: Extracting column-level final matches...")
     print("------------------------------------------------------------")
     final_matches = extract_best_column_matches(result_df_filtered, dfs)
     session.write_pandas(
         final_matches,
-        table_name="step6_final_column_matches",
+        table_name="STEP6_FINAL_COLUMN_MATCHES",
         schema="RAW",
         overwrite=True
     )    
     print(f"✔ {len(final_matches)} Final matches written to Snowflake\n")
-    return session.table("AUTODESK_ACCOUNT_MATCHING_DB.RAW.\"step6_final_column_matches\"")
+    return dbt.ref("raw_pos_step6_final_column_matches")
 
 def model(dbt, session):
     dbt.ref('step5')  # Make it so this runs after step5
@@ -171,6 +171,6 @@ def model(dbt, session):
         python_version="3.11"
     )
     dfs = load_data(dbt)
-    result_df_filtered = session.table("AUTODESK_ACCOUNT_MATCHING_DB.RAW.\"step5_gpt_column_pair_classification\"")
-    final_matches = get_best_column_matches(session, result_df_filtered, dfs)
+    result_df_filtered = session.table("raw_pos_step5_gpt_column_pair_classification")
+    final_matches = get_best_column_matches(dbt, session, result_df_filtered, dfs)
     return final_matches
