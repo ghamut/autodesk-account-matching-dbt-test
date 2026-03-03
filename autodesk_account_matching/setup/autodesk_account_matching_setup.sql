@@ -72,5 +72,54 @@ LIKE AUTODESK_ACCOUNT_MATCHING.PUBLIC.MASTER;
 INSERT INTO autodesk_account_matching_db.raw.MASTER
 SELECT * FROM AUTODESK_ACCOUNT_MATCHING.PUBLIC.MASTER;
 
+-- create some helper functions
+CREATE OR REPLACE FUNCTION AUTODESK_ACCOUNT_MATCHING_DB.RAW.IS_ENGLISH_LANGDETECT_08(text STRING)
+RETURNS BOOLEAN
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.11'
+PACKAGES = ('langdetect')
+HANDLER = 'is_english'
+AS
+$$
+import re
+from langdetect import detect_langs
+
+_ENGLISH_ASCII_FULLMATCH = r'[A-Za-z0-9\s.,&()\-\'"]+'
+THRESHOLD = 0.8
+
+def is_english(text):
+    if text is None:
+        return True
+    if re.fullmatch(_ENGLISH_ASCII_FULLMATCH, text):
+        return True
+    try:
+        langs = detect_langs(text)
+        return any(l.lang == "en" and l.prob > THRESHOLD for l in langs)
+    except Exception:
+        return False
+$$;
+
+CREATE OR REPLACE FUNCTION AUTODESK_ACCOUNT_MATCHING_DB.RAW.TOKEN_SET_RATIO(
+    S1 STRING,
+    S2 STRING
+)
+RETURNS FLOAT
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.11'
+PACKAGES = ('rapidfuzz')
+HANDLER = 'tsr'
+AS
+$$
+from rapidfuzz.fuzz import token_set_ratio
+
+def tsr(s1, s2):
+    # mirror your pandas logic: if either is null, return None
+    if s1 is None or s2 is None:
+        return None
+
+    # rapidfuzz already handles strings; ensure str for safety
+    return float(token_set_ratio(str(s1), str(s2)))
+$$;
+
 -- setup completion note
 SELECT 'autodesk_account_matching_db setup is now complete' AS note;
