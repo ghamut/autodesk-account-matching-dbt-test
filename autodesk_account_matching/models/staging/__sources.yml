@@ -132,3 +132,398 @@ sources:
           - name: SEC_ADDRESS3__C
           - name: ADDRESS2__C
           - name: ADDRESS1__C
+
+      - name: STEP7_TRANSLATED_DFS_ENR_250
+        columns:
+          - name: ENR250_RANKING_YEAR
+          - name: ENR250_RANK
+          - name: STD_COMPANY_NAME
+          - name: ADDRESS
+          - name: CITY
+          - name: STATE
+          - name: REGION
+          - name: POSTAL_CODE
+          - name: TELEPHONE_NUMBER
+          - name: FAX_NUMBER
+          - name: COMPANY_WEBSITE
+          - name: CEO_NAME
+          - name: CEO_TITLE
+          - name: COO_NAME
+          - name: COO_TITLE
+          - name: CFO_NAME
+          - name: CFO_TITLE
+          - name: COMPANY_NAME_SOUNDEX
+          - name: WEBSITE_NAME_SOUNDEX
+          - name: COUNTRY
+          - name: OLD_COMPANY_NAME
+
+      - name: STEP7_TRANSLATED_DFS_ENR_400
+        columns:
+          - name: ENR400_RANKING_YEAR
+          - name: ENR400_RANK
+          - name: OLD_COMPANY_NAME
+          - name: ADDRESS
+          - name: CITY
+          - name: STATE
+          - name: POSTAL_CODE
+          - name: HQ_PHONE
+          - name: FAX_NUMBER
+          - name: COMPANY_WEBSITE
+          - name: DOM_GC__TOTAL
+          - name: CEO_NAME
+          - name: CEO_TITLE
+          - name: BUSINESS_DEV_OFFICER_NAME
+          - name: BUSINESS_DEV_OFFICER_TITLE
+          - name: PUBLIC_RELATIONS_OFFICER_NAME
+          - name: PUBLIC_RELATIONS_OFFICER_TITLE
+          - name: HUMAN_RESOURCES_OFFICER_NAME
+          - name: HUMAN_RESOURCES_OFFICER_TITLE
+          - name: COMPANY_NAME_SOUNDEX
+          - name: WEBSITE_NAME_SOUNDEX
+          - name: COMPANY_NAME
+
+      - name: STEP7_TRANSLATED_DFS_ENR_600
+        columns:
+          - name: ENR600_RANKING_YEAR
+          - name: ENR600_RANK
+          - name: OLD_COMPANY_NAME
+          - name: ADDRESS
+          - name: STATE
+          - name: POSTAL_CODE
+          - name: HQ_PHONE
+          - name: FAX_NUMBER
+          - name: COMPANY_WEBSITE
+          - name: REVENUE_TOTAL
+          - name: NEW_CONTRACTS
+          - name: FIRM_TYPE
+          - name: CEO_NAME
+          - name: CEO_TITLE
+          - name: BUSINESS_DEV_OFFICER_NAME
+          - name: BUSINESS_DEV_OFFICER_TITLE
+          - name: PUBLIC_RELATIONS_OFFICER_NAME
+          - name: PUBLIC_RELATIONS_OFFICER_TITLE
+          - name: HUMAN_RESOURCES_OFFICER_NAME
+          - name: HUMAN_RESOURCES_OFFICER_TITLE
+          - name: EQUIPMENT_MANAGER_NAME
+          - name: EQUIPMENT_MANAGER_TITLE
+          - name: COMPANY_NAME_SOUNDEX
+          - name: WEBSITE_NAME_SOUNDEX
+          - name: CITY
+          - name: COMPANY_NAME
+
+      - name: STEP7_TRANSLATED_DFS_GLOBAL_DATA
+        columns:
+          - name: OVERVIEW
+          - name: ENTITY_TYPE
+          - name: COMPANY_TYPE
+          - name: NUMBER_OF_EMPLOYEES
+          - name: ANNUAL_REVENUE
+          - name: REVENUE_YEAR
+          - name: EMAIL_ADDRESS
+          - name: COMPANY_URL
+          - name: HEADQUARTERS_PHONE_NUMBER
+          - name: HEADQUARTERS_FAX
+          - name: HEADQUARTERS_ADDRESS
+          - name: HEADQUARTERS_STATE
+          - name: HEADQUARTERS_ZIPCODE
+          - name: FISCAL_YEAR_END
+          - name: INTERNATIONAL_SECURITIES_IDENTIFICATION_NUMBER
+          - name: TICK_SYMBOL
+          - name: PARENT_COMPANY_ID
+          - name: PARENT_COMPANY_NAME
+          - name: COMPANY_ID
+          - name: HEADQUARTERS_CITY
+          - name: HEADQUARTERS_COUNTRY
+          - name: DUNS
+          - name: PRIMARY_INDUSTRY
+          - name: COMPANY_NAME
+
+      - name: STEP7_TRANSLATED_DFS_MASTER
+        columns:
+          - name: ID
+          - name: PARENT_ACCOUNT_CSN__C
+          - name: INDUSTRY_SUB_SEGMENT__C
+          - name: GEO__C
+          - name: SEC_ACCOUNT_NAME__C
+          - name: COUNTRY_PICKLIST__C
+          - name: BILLINGCOUNTRY
+          - name: SIC_CODE_VALUE__C
+          - name: SEC_ADDRESS1__C
+          - name: SEC_ADDRESS2__C
+          - name: SEC_ADDRESS3__C
+          - name: ADDRESS2__C
+          - name: ADDRESS1__C
+          - name: COUNTRY__C
+          - name: PARENT_ACCOUNT_NAME__C
+          - name: CITY__C
+          - name: NAME
+          - name: ACCOUNT_CSN__C
+          - name: DUNS_NUMBER__C
+          - name: INDUSTRY_SEGMENT__C
+
+      - name: STEP8_TRANSFORMED_DFS_ENR_250
+        columns:
+          - name: ENR250_RANKING_YEAR
+          - name: ENR250_RANK
+          - name: STD_COMPANY_NAME
+          - name: ADDRESS
+          - name: CITY
+          - name: STATE
+          - name: REGION
+          - name: POSTAL_CODE
+          - name: TELEPHONE_NUMBER
+          - name: FAX_NUMBER
+          - name: COMPANY_WEBSITE
+          - name: CEO_NAME
+          - name: CEO_TITLE
+          - name: COO_NAME
+          - name: COO_TITLE
+          - name: CFO_NAME
+          - name: CFO_TITLE
+          - name: COMPANY_NAME_SOUNDEX
+          - name: WEBSITE_NAME_SOUNDEX
+          - name: COUNTRY
+          - name: OLD_COMPANY_NAME
+          - name: COUNTRY__TRANSFORMED
+          - name: OLD_COMPANY_NAME__TRANSFORMED
+
+      - name: STEP8_TRANSFORMED_DFS_ENR_400
+        columns:
+          - name: ENR400_RANKING_YEAR
+          - name: ENR400_RANK
+          - name: OLD_COMPANY_NAME
+          - name: ADDRESS
+          - name: CITY
+          - name: STATE
+          - name: POSTAL_CODE
+          - name: HQ_PHONE
+          - name: FAX_NUMBER
+          - name: COMPANY_WEBSITE
+          - name: DOM_GC__TOTAL
+          - name: CEO_NAME
+          - name: CEO_TITLE
+          - name: BUSINESS_DEV_OFFICER_NAME
+          - name: BUSINESS_DEV_OFFICER_TITLE
+          - name: PUBLIC_RELATIONS_OFFICER_NAME
+          - name: PUBLIC_RELATIONS_OFFICER_TITLE
+          - name: HUMAN_RESOURCES_OFFICER_NAME
+          - name: HUMAN_RESOURCES_OFFICER_TITLE
+          - name: COMPANY_NAME_SOUNDEX
+          - name: WEBSITE_NAME_SOUNDEX
+          - name: COMPANY_NAME
+          - name: COMPANY_NAME__TRANSFORMED
+
+      - name: STEP8_TRANSFORMED_DFS_ENR_600
+        columns:
+          - name: ENR600_RANKING_YEAR
+          - name: ENR600_RANK
+          - name: OLD_COMPANY_NAME
+          - name: ADDRESS
+          - name: STATE
+          - name: POSTAL_CODE
+          - name: HQ_PHONE
+          - name: FAX_NUMBER
+          - name: COMPANY_WEBSITE
+          - name: REVENUE_TOTAL
+          - name: NEW_CONTRACTS
+          - name: FIRM_TYPE
+          - name: CEO_NAME
+          - name: CEO_TITLE
+          - name: BUSINESS_DEV_OFFICER_NAME
+          - name: BUSINESS_DEV_OFFICER_TITLE
+          - name: PUBLIC_RELATIONS_OFFICER_NAME
+          - name: PUBLIC_RELATIONS_OFFICER_TITLE
+          - name: HUMAN_RESOURCES_OFFICER_NAME
+          - name: HUMAN_RESOURCES_OFFICER_TITLE
+          - name: EQUIPMENT_MANAGER_NAME
+          - name: EQUIPMENT_MANAGER_TITLE
+          - name: COMPANY_NAME_SOUNDEX
+          - name: WEBSITE_NAME_SOUNDEX
+          - name: CITY
+          - name: COMPANY_NAME
+          - name: CITY__TRANSFORMED
+          - name: COMPANY_NAME__TRANSFORMED
+
+      - name: STEP8_TRANSFORMED_DFS_GLOBAL_DATA
+        columns:
+          - name: OVERVIEW
+          - name: ENTITY_TYPE
+          - name: COMPANY_TYPE
+          - name: NUMBER_OF_EMPLOYEES
+          - name: ANNUAL_REVENUE
+          - name: REVENUE_YEAR
+          - name: EMAIL_ADDRESS
+          - name: COMPANY_URL
+          - name: HEADQUARTERS_PHONE_NUMBER
+          - name: HEADQUARTERS_FAX
+          - name: HEADQUARTERS_ADDRESS
+          - name: HEADQUARTERS_STATE
+          - name: HEADQUARTERS_ZIPCODE
+          - name: FISCAL_YEAR_END
+          - name: INTERNATIONAL_SECURITIES_IDENTIFICATION_NUMBER
+          - name: TICK_SYMBOL
+          - name: PARENT_COMPANY_ID
+          - name: PARENT_COMPANY_NAME
+          - name: COMPANY_ID
+          - name: HEADQUARTERS_CITY
+          - name: HEADQUARTERS_COUNTRY
+          - name: DUNS
+          - name: PRIMARY_INDUSTRY
+          - name: COMPANY_NAME
+          - name: COMPANY_ID__TRANSFORMED
+          - name: HEADQUARTERS_CITY__TRANSFORMED
+          - name: HEADQUARTERS_COUNTRY__TRANSFORMED
+          - name: DUNS__TRANSFORMED
+          - name: PRIMARY_INDUSTRY__TRANSFORMED
+          - name: COMPANY_NAME__TRANSFORMED
+
+      - name: STEP8_TRANSFORMED_DFS_MASTER
+        columns:
+          - name: ID
+          - name: PARENT_ACCOUNT_CSN__C
+          - name: INDUSTRY_SUB_SEGMENT__C
+          - name: GEO__C
+          - name: SEC_ACCOUNT_NAME__C
+          - name: COUNTRY_PICKLIST__C
+          - name: BILLINGCOUNTRY
+          - name: SIC_CODE_VALUE__C
+          - name: SEC_ADDRESS1__C
+          - name: SEC_ADDRESS2__C
+          - name: SEC_ADDRESS3__C
+          - name: ADDRESS2__C
+          - name: ADDRESS1__C
+          - name: COUNTRY__C
+          - name: PARENT_ACCOUNT_NAME__C
+          - name: CITY__C
+          - name: NAME
+          - name: ACCOUNT_CSN__C
+          - name: DUNS_NUMBER__C
+          - name: INDUSTRY_SEGMENT__C
+
+      - name: step10_final_llm_row_matches
+        columns:
+          - name: ENRICHMENT_ROW_INDEX
+          - name: MASTER_ROW_INDEX
+          - name: MASTER_DATASET
+          - name: ENRICHMENT_DATASET
+          - name: ENRICHMENT_EVIDENCE
+          - name: MASTER_EVIDENCE
+          - name: SIMILARITY
+          - name: AVG_SIMILARITY
+          - name: FINAL_LLM_DECISION
+          - name: FINAL_LLM_JUSTIFICATION
+
+      - name: step2_column_metadata_descriptions
+        columns:
+          - name: Dataset
+          - name: Column
+          - name: Detected Data Type
+          - name: Example Values
+          - name: Description
+
+      - name: step3_all_column_pair_features
+        columns:
+          - name: master_dataset
+          - name: enrichment_dataset
+          - name: master_column
+          - name: enrichment_column
+          - name: master_description
+          - name: enrichment_description
+          - name: master_data_type
+          - name: enrichment_data_type
+          - name: master_example_values
+          - name: enrichment_example_values
+          - name: type_mismatch
+          - name: master_fill_rate
+          - name: enrichment_fill_rate
+          - name: fuzzy_ratio
+          - name: fuzzy_token_sort_ratio
+          - name: fuzzy_token_set_ratio
+          - name: description_embedding_similarity
+          - name: overlap_master_ratio
+          - name: overlap_enrichment_ratio
+          - name: overlap_jaccard
+          - name: avg_length_diff
+          - name: entropy_master
+          - name: entropy_enrichment
+          - name: entropy_gap
+          - name: status
+
+      - name: step4_filtered_column_pairs
+        columns:
+          - name: master_dataset
+          - name: enrichment_dataset
+          - name: master_column
+          - name: enrichment_column
+          - name: master_description
+          - name: enrichment_description
+          - name: master_data_type
+          - name: enrichment_data_type
+          - name: master_example_values
+          - name: enrichment_example_values
+          - name: type_mismatch
+          - name: master_fill_rate
+          - name: enrichment_fill_rate
+          - name: fuzzy_ratio
+          - name: fuzzy_token_sort_ratio
+          - name: fuzzy_token_set_ratio
+          - name: description_embedding_similarity
+          - name: overlap_master_ratio
+          - name: overlap_enrichment_ratio
+          - name: overlap_jaccard
+          - name: avg_length_diff
+          - name: entropy_master
+          - name: entropy_enrichment
+          - name: entropy_gap
+          - name: status
+
+      - name: step5_gpt_column_pair_classification
+        columns:
+          - name: master_dataset
+          - name: enrichment_dataset
+          - name: master_column
+          - name: enrichment_column
+          - name: master_description
+          - name: enrichment_description
+          - name: master_data_type
+          - name: enrichment_data_type
+          - name: master_example_values
+          - name: enrichment_example_values
+          - name: type_mismatch
+          - name: master_fill_rate
+          - name: enrichment_fill_rate
+          - name: fuzzy_ratio
+          - name: fuzzy_token_sort_ratio
+          - name: fuzzy_token_set_ratio
+          - name: description_embedding_similarity
+          - name: overlap_master_ratio
+          - name: overlap_enrichment_ratio
+          - name: overlap_jaccard
+          - name: avg_length_diff
+          - name: entropy_master
+          - name: entropy_enrichment
+          - name: entropy_gap
+          - name: status
+          - name: chatgpt_decision
+          - name: chatgpt_justification
+
+      - name: step6_final_column_matches
+        columns:
+          - name: master_column
+          - name: enrichment_dataset
+          - name: enrichment_column
+          - name: enrichment_candidates
+          - name: weighted_score
+          - name: percent_master_in_enrichment
+          - name: percent_enrichment_in_master
+
+      - name: step9_final_transformed_dfs
+        columns:
+          - name: ENRICHMENT_ROW_INDEX
+          - name: MASTER_ROW_INDEX
+          - name: MASTER_DATASET
+          - name: ENRICHMENT_DATASET
+          - name: ENRICHMENT_EVIDENCE
+          - name: MASTER_EVIDENCE
+          - name: SIMILARITY
+          - name: AVG_SIMILARITY

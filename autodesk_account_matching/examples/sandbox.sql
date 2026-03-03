@@ -1,1 +1,17 @@
-SELECT * FROM autodesk_account_matching_db.raw.ENR_250;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.STEP7_TRANSLATED_DFS_ENR_250;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.STEP7_TRANSLATED_DFS_ENR_400;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.STEP7_TRANSLATED_DFS_ENR_600;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.STEP7_TRANSLATED_DFS_GLOBAL_DATA;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.STEP7_TRANSLATED_DFS_MASTER;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.STEP8_TRANSFORMED_DFS_ENR_250;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.STEP8_TRANSFORMED_DFS_ENR_400;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.STEP8_TRANSFORMED_DFS_ENR_600;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.STEP8_TRANSFORMED_DFS_GLOBAL_DATA;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.STEP8_TRANSFORMED_DFS_MASTER;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.step10_final_llm_row_matches;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.step2_column_metadata_descriptions;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.step3_all_column_pair_features;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.step4_filtered_column_pairs;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.step5_gpt_column_pair_classification;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.step6_final_column_matches;
+DROP TABLE IF EXISTS autodesk_account_matching_db.raw.step9_final_transformed_dfs;
