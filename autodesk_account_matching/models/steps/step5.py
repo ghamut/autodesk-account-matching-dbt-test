@@ -52,12 +52,12 @@ Assume that each column is internally consistent:
 - Never infer that a column mixes topics; always assume each column represents one, and only one topic.
 
 Column 1:
-- Name: {row['master_column']}
-- Example Values: {', '.join(map(str, row['master_example_values']))}
+- Name: {row['master_column'.upper()]}
+- Example Values: {', '.join(map(str, row['master_example_values'.upper()]))}
 
 Column 2:
-- Name: {row['enrichment_column']}
-- Example Values: {', '.join(map(str, row['enrichment_example_values']))}
+- Name: {row['enrichment_column'.upper()]}
+- Example Values: {', '.join(map(str, row['enrichment_example_values'.upper()]))}
  
 Format your response exactly like this:
 "Yes" or "No"
@@ -89,8 +89,8 @@ def apply_gpt_decision(dbt, session, result_df_filtered):
         futures = {executor.submit(gpt_match_row, row): i for i, row in enumerate(rows)}
         for future in tqdm(as_completed(futures), total=len(futures), desc="Evaluating pairs via GPT"):
             result = future.result()
-            result_df_filtered.at[result["index"], 'chatgpt_decision'] = result["decision"]
-            result_df_filtered.at[result["index"], 'chatgpt_justification'] = result["justification"]
+            result_df_filtered.at[result["index"], 'chatgpt_decision'.upper()] = result["decision"]
+            result_df_filtered.at[result["index"], 'chatgpt_justification'.upper()] = result["justification"]
 
     result_df_filtered.columns = result_df_filtered.columns.str.upper()
     session.write_pandas(
@@ -99,7 +99,7 @@ def apply_gpt_decision(dbt, session, result_df_filtered):
         schema="RAW",
         overwrite=True
     )    
-    print(f"✔ GPT assessment complete; {result_df_filtered['chatgpt_decision'].value_counts().get('Yes', 0)} columns were determined to match.")
+    print(f"✔ GPT assessment complete; {result_df_filtered['chatgpt_decision'.upper()].value_counts().get('Yes', 0)} columns were determined to match.")
     print(f"✔ GPT decisions written to Snowflake\n")
     return dbt.ref("raw_pos_step5_gpt_column_pair_classification")
 

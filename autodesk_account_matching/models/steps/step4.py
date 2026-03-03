@@ -39,19 +39,19 @@ def filter_results(dbt, session, result_df):
     print("------------------------------------------------------------")
     result_df = result_df.to_pandas()
     filtered = result_df[
-        (result_df['avg_length_diff'] < FT['max_avg_length_diff']) &
-        (result_df['master_fill_rate'] >= FT['min_fill_rate']) &
-        (result_df['enrichment_fill_rate'] >= FT['min_fill_rate']) &
-        (result_df['description_embedding_similarity'] >= FT['min_description_similarity']) &
+        (result_df['avg_length_diff'.upper()] < FT['max_avg_length_diff']) &
+        (result_df['master_fill_rate'.upper()] >= FT['min_fill_rate']) &
+        (result_df['enrichment_fill_rate'.upper()] >= FT['min_fill_rate']) &
+        (result_df['description_embedding_similarity'.upper()] >= FT['min_description_similarity']) &
         (
-            (~result_df['type_mismatch']) |
-            (result_df['description_embedding_similarity'] > FT['high_similarity_override_threshold'])
+            (~result_df['type_mismatch'.upper()]) |
+            (result_df['description_embedding_similarity'.upper()] > FT['high_similarity_override_threshold'])
         ) &
-        (result_df['entropy_gap'] <= FT['max_entropy_gap']) &
-        ~((result_df['master_dataset'] == 'Master') &
-          (result_df['enrichment_dataset'] == 'Master') &
-          (result_df['master_column'] == result_df['enrichment_column'])) &
-        (result_df['master_column'] != result_df['enrichment_column'])
+        (result_df['entropy_gap'.upper()] <= FT['max_entropy_gap']) &
+        ~((result_df['master_dataset'.upper()] == 'Master') &
+          (result_df['enrichment_dataset'.upper()] == 'Master') &
+          (result_df['master_column'.upper()] == result_df['enrichment_column'.upper()])) &
+        (result_df['master_column'.upper()] != result_df['enrichment_column'.upper()])
     ].copy()
     filtered.columns = filtered.columns.str.upper()
     session.write_pandas(
