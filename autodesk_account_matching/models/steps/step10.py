@@ -99,7 +99,6 @@ def apply_llm_judgment_on_account_matches(dbt, matches):
         .with_column("final_llm_decision", llm_obj["decision"].cast("string"))
         .with_column("final_llm_justification", llm_obj["justification"].cast("string"))
     )
-    out_df.columns = out_df.columns.str.upper()
     # Persist results fully in Snowflake (no local materialization).
     out_df.write.mode("overwrite").save_as_table('AUTODESK_ACCOUNT_MATCHING_DB.RAW.STEP10_FINAL_LLM_ROW_MATCHES')
 
@@ -123,7 +122,7 @@ def apply_llm_judgment_on_account_matches(dbt, matches):
 
 def model(dbt, session):
     # TODO: Adjust thresholds to get some Yes values
-    # dbt.ref('step7_8_9')  # Make it so this runs after step9
+    dbt.ref('step7_8_9')  # Make it so this runs after step9
     dbt.config(
         packages=['snowflake-snowpark-python','pandas','tqdm','httpx','rapidfuzz','langdetect','snowflake-ml-python'],
         python_version="3.11"
