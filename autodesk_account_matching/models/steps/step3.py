@@ -97,7 +97,37 @@ def shannon_entropy(df, colname: str):
     # On empty input, entropy will come back as None
     return entropy_df.collect()[0][0]
 
-def compute_features(key, dataset, m_key, e_key, meta_data, dfs, results_dict):
+def get_fill_rate(df, colname: str):
+    return float(df.select(
+        avg(when(col(colname).is_not_null(), 1).otherwise(0))
+    ).collect()[0][0])
+
+def get_avg_len(df, colname: str):
+    return (
+            df
+            .select(col(colname).cast("string").alias("v"))
+            .where(col(colname).is_not_null())
+            .distinct()
+            .select(avg(length(col("v"))))
+            .collect()[0][0]
+        )
+
+def precompute_embeddings(meta_data_df):
+    embedded_df = meta_data_df.select(
+        col("\"Dataset\""),
+        col("\"Column\""),
+        call_function("SNOWFLAKE.CORTEX.EMBED_TEXT_1024", 
+                      lit('snowflake-arctic-embed-l-v2.0'), 
+                      col("\"Description\"")).alias("EMBEDDING")
+    ).collect()
+    
+    embedding_dict = {
+        (row["Dataset"], row["Column"]): row["EMBEDDING"]
+        for row in embedded_df
+    }
+    return embedding_dict
+
+def compute_features(key, dataset, m_key, e_key, meta_data, dfs, results_dict, entropy_dict, embedding_dict, fill_rate_dict, avg_len_dict):
     sub_result = results_dict.get(key, {})
 
     # Add identifying metadata
@@ -126,13 +156,9 @@ def compute_features(key, dataset, m_key, e_key, meta_data, dfs, results_dict):
     master_df = dfs["Master"]
     enrich_df = dfs[dataset]
     
-    master_fill_rate = float(master_df.select(
-        avg(when(col(m_key).is_not_null(), 1).otherwise(0))
-    ).collect()[0][0])
+    master_fill_rate = fill_rate_dict[("Master", m_key)]
 
-    enrichment_fill_rate = float(enrich_df.select(
-        avg(when(col(e_key).is_not_null(), 1).otherwise(0))
-    ).collect()[0][0])
+    enrichment_fill_rate = fill_rate_dict[(dataset, e_key)]
     
     sub_result.setdefault('master_fill_rate', master_fill_rate)
     sub_result.setdefault('enrichment_fill_rate', enrichment_fill_rate)
@@ -142,8 +168,8 @@ def compute_features(key, dataset, m_key, e_key, meta_data, dfs, results_dict):
 
     if 'description_embedding_similarity' not in sub_result:
         try:
-            vec1 = embed_text_1024('snowflake-arctic-embed-l-v2.0', sub_result['master_description'])
-            vec2 = embed_text_1024('snowflake-arctic-embed-l-v2.0', sub_result['enrichment_description'])
+            vec1 = embedding_dict[('Master', m_key)]
+            vec2 = embedding_dict[(dataset, e_key)]
             sub_result['description_embedding_similarity'] = cosine_similarity(vec1, vec2)
         except Exception as e:
             sub_result['description_embedding_similarity'] = None
@@ -186,23 +212,9 @@ def compute_features(key, dataset, m_key, e_key, meta_data, dfs, results_dict):
     if 'avg_length_diff' not in sub_result:
         # m_lengths = [len(v) for v in master_values]
         # e_lengths = [len(v) for v in enrichment_values]
-        m_avg_len = (
-            master_df
-            .select(col(m_key).cast("string").alias("v"))
-            .where(col(m_key).is_not_null())
-            .distinct()
-            .select(avg(length(col("v"))))
-            .collect()[0][0]
-        )
+        m_avg_len = avg_len_dict[("Master", m_key)]
         
-        e_avg_len = (
-            enrich_df
-            .select(col(e_key).cast("string").alias("v"))
-            .where(col(e_key).is_not_null())
-            .distinct()
-            .select(avg(length(col("v"))))
-            .collect()[0][0]
-        )
+        e_avg_len = avg_len_dict[(dataset, e_key)]
         
         avg_length_diff = (
             abs(float(m_avg_len) - float(e_avg_len))
@@ -212,8 +224,8 @@ def compute_features(key, dataset, m_key, e_key, meta_data, dfs, results_dict):
         sub_result['avg_length_diff'] = avg_length_diff
 
     if 'entropy_master' not in sub_result or 'entropy_enrichment' not in sub_result:
-        entropy_master = shannon_entropy(master_df, m_key)
-        entropy_enrich = shannon_entropy(enrich_df, e_key)
+        entropy_master = entropy_dict[('Master', m_key)]
+        entropy_enrich = entropy_dict[(dataset, e_key)]
         sub_result['entropy_master'] = float(entropy_master) if entropy_master is not None else None
         sub_result['entropy_enrichment'] = float(entropy_enrich) if entropy_enrich is not None else None
         sub_result['entropy_gap'] = abs(float(entropy_master) - float(entropy_enrich)) if entropy_master is not None and entropy_enrich is not None else None
@@ -228,20 +240,62 @@ def extract_features(dbt, session, meta_data, dfs):
     column_pairs = generate_column_pairs(dfs)
     print(f"Total column pair comparisons: {len(column_pairs)}")
 
+    embedding_dict = precompute_embeddings(meta_data)
+
     # Convert back to the original dict structure
     df = meta_data.to_pandas()
+    
     # restore index
     df = df.set_index(["Dataset", "Column"])
     
     # rebuild nested dict
     meta_data = {}
+    # Create list of tuples for iterating over columns for entropy precomputation
+    entropy_list = []
     for (dataset, column), row in df.iterrows():
         meta_data.setdefault(dataset, {})[column] = row.to_dict()
+        this_df = dfs[dataset]
+        entropy_list.append((this_df, column, dataset))
+
+    entropy_dict = {}
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(shannon_entropy, df_, col_name): (dataset, col_name)
+            for df_, col_name, dataset in entropy_list
+        }
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Precomputing entropies for all columns"):
+            key = futures[future]
+            result = future.result()
+            entropy_dict[key] = result
+
+    # Do something similar for fill rates
+    fill_rate_dict = {}
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(get_fill_rate, df_, col_name): (dataset, col_name)
+            for df_, col_name, dataset in entropy_list
+        }
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Precomputing fill rates for all columns"):
+            key = futures[future]
+            result = future.result()
+            fill_rate_dict[key] = result
+
+    # Do something similar for avg lens
+    avg_len_dict = {}
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(get_avg_len, df_, col_name): (dataset, col_name)
+            for df_, col_name, dataset in entropy_list
+        }
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Precomputing average lengths for all columns"):
+            key = futures[future]
+            result = future.result()
+            avg_len_dict[key] = result
 
     results_dict = {}
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = {
-            executor.submit(compute_features, key, dataset, m_key, e_key, meta_data, dfs, results_dict): key
+            executor.submit(compute_features, key, dataset, m_key, e_key, meta_data, dfs, results_dict, entropy_dict, embedding_dict, fill_rate_dict, avg_len_dict): key
             for key, dataset, m_key, e_key in column_pairs
         }
         for future in tqdm(as_completed(futures), total=len(futures), desc="Computing features"):
