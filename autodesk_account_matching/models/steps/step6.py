@@ -16,23 +16,6 @@ import numpy as np
 from langdetect import detect_langs
 import re
 
-MAX_WORKERS = min(64, (os.cpu_count() or 4) * 5)
-FT = {
-    'max_avg_length_diff': 12,              # Discard columns with large difference in value length
-    'min_fill_rate': 0.25,                  # Discard sparse columns
-    'min_description_similarity': 0.3,      # Minimum cosine similarity between description embeddings
-    'high_similarity_override_threshold': 0.8, # Allows keeping mismatched types if textually very similar
-    'max_entropy_gap': 2                    # Penalize columns with very different value diversity
-}
-FW = {
-    'fuzzy_ratio': 25,             # Importance of raw name similarity
-    'overlap_jaccard': 100,        # Shared value overlap (set-wise Jaccard index)
-    'avg_length_diff': 50,         # Penalize large differences in value length
-    'entropy_gap': 10,             # Penalize dissimilar information entropy
-    'master_fill_rate': 100,       # Prefer well-populated master fields
-    'enrichment_fill_rate': 100    # Prefer well-populated enrichment fields
-}
-
 def load_data(dbt):
     print("------------------------------------------------------------")
     print("Step 1: Loading input data...")
@@ -50,7 +33,7 @@ def load_data(dbt):
     print(f"✔ Data on {len(dfs)} datasets successfully loaded from Snowflake\n")
     return dfs
 
-def extract_best_column_matches(result_df_filtered, dfs, weight_map=None):
+def extract_best_column_matches(result_df_filtered, dfs, FW, weight_map=None):
     result_df_filtered = result_df_filtered.to_pandas()
     
     if weight_map is None:
@@ -154,7 +137,8 @@ def get_best_column_matches(dbt, session, result_df_filtered, dfs):
     print("------------------------------------------------------------")
     print("Step 6: Extracting column-level final matches...")
     print("------------------------------------------------------------")
-    final_matches = extract_best_column_matches(result_df_filtered, dfs)
+    FW = dbt.config.get("config")["feature_weights"]
+    final_matches = extract_best_column_matches(result_df_filtered, dfs, FW)
     session.write_pandas(
         final_matches,
         table_name="STEP6_FINAL_COLUMN_MATCHES",
