@@ -112,6 +112,20 @@ def model(dbt, session):
 
     llm_settings = dbt.config.get("config")["llm_settings"]
     llm_model, llm_temp, llm_top_p, llm_max_tokens = llm_settings['model'], llm_settings['temperature'], llm_settings['top_p'], llm_settings['max_tokens']
-    
-    matches = apply_llm_judgment_on_account_matches(session, matches, llm_model, llm_temp, llm_top_p, llm_max_tokens)
+
+    step10_settings = dbt.config.get("config")["step10_llm_calls"]
+    llm_top_n, backup_threshold = step10_settings['ask_llm_on_top_n'], step10_settings['backup_threshold']
+
+    if llm_top_n <= 0:
+        out_df = (
+            matches
+            .with_column("final_llm_decision", F.when(F.col("AVG_SIMILARITY") >= backup_threshold, F.lit("Yes")).otherwise(F.lit("No")))
+            .with_column("final_llm_justification", F.lit("LLM not called; backup threshold used"))
+        )
+        out_df.write.mode("overwrite").save_as_table('AUTODESK_ACCOUNT_MATCHING_DB.RAW.STEP10_FINAL_LLM_ROW_MATCHES_EMBED')
+        matches = session.table('AUTODESK_ACCOUNT_MATCHING_DB.RAW.STEP10_FINAL_LLM_ROW_MATCHES_EMBED')
+    else:
+        matches = apply_llm_judgment_on_account_matches(session, matches, llm_model, llm_temp, llm_top_p, llm_max_tokens)
+
+    # TODO: Take only llm_top_n matches per master row in descending order of avg_similarity if 0 < llm_top_n < top_n (mark excludeds as "No" immediately with no LLM calls)
     return matches

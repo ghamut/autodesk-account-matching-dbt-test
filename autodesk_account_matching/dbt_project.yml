@@ -50,3 +50,6 @@ models:
         step2_sampling:
           num_examples: 10                          # How many examples from each column to select
           num_samples_for_typing: 1000              # How many samples from each column to view when determining the column's type
+        step10_llm_calls:
+          ask_llm_on_top_n: 3                       # The top N most similar master rows per enrichment row to send to an LLM for confirmation. If set to 0, only result(s) with threshold above backup_threshold below will be taken.
+          backup_threshold: 0.9                     # If the above is set to 0, this determines the average similarity threshold for two accounts to automatically be considered "Yes".
