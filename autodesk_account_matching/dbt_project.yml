@@ -42,6 +42,8 @@ models:
           temperature: 0                            # Controls randomness of LLM output (0 = deterministic, 1 = high variance)
           top_p: 1                                  # Nucleus sampling LLM parameter
           max_tokens: 1000                          # Maximum number of tokens returned per LLM call
+        embedding_settings:
+          model: "snowflake-arctic-embed-l-v2.0"    # The Snowflake embeddings model to use (see list here: https://docs.snowflake.com/en/sql-reference/functions/ai_embed)
         step2_sampling:
           num_examples: 10                          # How many examples from each column to select
-          num_samples_for_typing: 1000                  # How many samples from each column to view when determining the column's type
+          num_samples_for_typing: 1000              # How many samples from each column to view when determining the column's type

@@ -17,21 +17,6 @@ from langdetect import detect_langs
 import re
 
 MAX_WORKERS = min(64, (os.cpu_count() or 4) * 5)
-FT = {
-    'max_avg_length_diff': 12,              # Discard columns with large difference in value length
-    'min_fill_rate': 0.25,                  # Discard sparse columns
-    'min_description_similarity': 0.3,      # Minimum cosine similarity between description embeddings
-    'high_similarity_override_threshold': 0.8, # Allows keeping mismatched types if textually very similar
-    'max_entropy_gap': 2                    # Penalize columns with very different value diversity
-}
-FW = {
-    'fuzzy_ratio': 25,             # Importance of raw name similarity
-    'overlap_jaccard': 100,        # Shared value overlap (set-wise Jaccard index)
-    'avg_length_diff': 50,         # Penalize large differences in value length
-    'entropy_gap': 10,             # Penalize dissimilar information entropy
-    'master_fill_rate': 100,       # Prefer well-populated master fields
-    'enrichment_fill_rate': 100    # Prefer well-populated enrichment fields
-}
 
 def load_data(dbt):
     print("------------------------------------------------------------")
@@ -112,12 +97,12 @@ def get_avg_len(df, colname: str):
             .collect()[0][0]
         )
 
-def precompute_embeddings(meta_data_df):
+def precompute_embeddings(meta_data_df, embed_model):
     embedded_df = meta_data_df.select(
         col("\"Dataset\""),
         col("\"Column\""),
         call_function("SNOWFLAKE.CORTEX.EMBED_TEXT_1024", 
-                      lit('snowflake-arctic-embed-l-v2.0'), 
+                      lit(embed_model), 
                       col("\"Description\"")).alias("EMBEDDING")
     ).collect()
     
@@ -240,7 +225,8 @@ def extract_features(dbt, session, meta_data, dfs):
     column_pairs = generate_column_pairs(dfs)
     print(f"Total column pair comparisons: {len(column_pairs)}")
 
-    embedding_dict = precompute_embeddings(meta_data)
+    embed_model = dbt.config.get("config")["embedding_settings"]["model"]
+    embedding_dict = precompute_embeddings(meta_data, embed_model)
 
     # Convert back to the original dict structure
     df = meta_data.to_pandas()
