@@ -116,6 +116,8 @@ def model(dbt, session):
     step10_settings = dbt.config.get("config")["step10_llm_calls"]
     llm_top_n, backup_threshold = step10_settings['ask_llm_on_top_n'], step10_settings['backup_threshold']
 
+    top_n = dbt.config.get("config")["feature_thresholds"]["embedding_top_n"]
+
     if llm_top_n <= 0:
         out_df = (
             matches
@@ -124,8 +126,26 @@ def model(dbt, session):
         )
         out_df.write.mode("overwrite").save_as_table('AUTODESK_ACCOUNT_MATCHING_DB.RAW.STEP10_FINAL_LLM_ROW_MATCHES_EMBED')
         matches = session.table('AUTODESK_ACCOUNT_MATCHING_DB.RAW.STEP10_FINAL_LLM_ROW_MATCHES_EMBED')
+
+    elif 0 < llm_top_n < top_n:
+        window_spec = Window.partition_by("MASTER_ROW_INDEX").order_by(F.col("AVG_SIMILARITY").desc())
+        matches_ranked = matches.with_column("_rank", F.row_number().over(window_spec))
+        
+        top_matches = matches_ranked.filter(F.col("_rank") <= llm_top_n).drop("_rank")
+        rest_matches = (
+            matches_ranked
+            .filter(F.col("_rank") > llm_top_n)
+            .drop("_rank")
+            .with_column("final_llm_decision", F.lit("No"))
+            .with_column("final_llm_justification", F.lit("LLM not called; similarity too low"))
+        )
+        
+        llm_results = apply_llm_judgment_on_account_matches(session, top_matches, llm_model, llm_temp, llm_top_p, llm_max_tokens)
+        combined = llm_results.union_all(rest_matches)
+        combined.write.mode("overwrite").save_as_table('AUTODESK_ACCOUNT_MATCHING_DB.RAW.STEP10_FINAL_LLM_ROW_MATCHES_EMBED')
+        matches = session.table('AUTODESK_ACCOUNT_MATCHING_DB.RAW.STEP10_FINAL_LLM_ROW_MATCHES_EMBED')
+    
     else:
         matches = apply_llm_judgment_on_account_matches(session, matches, llm_model, llm_temp, llm_top_p, llm_max_tokens)
 
-    # TODO: Take only llm_top_n matches per master row in descending order of avg_similarity if 0 < llm_top_n < top_n (mark excludeds as "No" immediately with no LLM calls)
     return matches
