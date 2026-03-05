@@ -32,7 +32,7 @@ models:
           max_entropy_gap: 2                        # Penalize columns with very different value diversity
           overlap_threshold: 75                     # Minimum % overlap to count a field as filterable
           fuzzy_similarity_threshold: 75            # Minimum fuzzy match for value-level alignment
-          embedding_top_n: 3                                  # The top N most similar master rows per enrichment row to take (using cosine similarity of embeddings)
+          embedding_top_n: 3                        # The top N most similar master rows per enrichment row to take (using cosine similarity of embeddings)
         feature_weights:
           fuzzy_ratio: 25                           # Importance of raw name similarity
           overlap_jaccard: 100                      # Shared value overlap (set-wise Jaccard index)
