@@ -15,27 +15,6 @@ import numpy as np
 from langdetect import detect_langs
 import re
 
-MAX_WORKERS = min(64, (os.cpu_count() or 4) * 5)
-
-# Select the top N most similar master rows per enrichment row (using cosine similarity of embeddings)
-TOP_N_MOST_SIMILAR = 3
-
-FT = {
-    'max_avg_length_diff': 12,              # Discard columns with large difference in value length
-    'min_fill_rate': 0.25,                  # Discard sparse columns
-    'min_description_similarity': 0.3,      # Minimum cosine similarity between description embeddings
-    'high_similarity_override_threshold': 0.8, # Allows keeping mismatched types if textually very similar
-    'max_entropy_gap': 2                    # Penalize columns with very different value diversity
-}
-FW = {
-    'name_ratio': 25,             # Importance of raw name similarity
-    'overlap_jaccard': 100,       # Shared value overlap (set-wise Jaccard index)
-    'avg_length_diff': 50,        # Penalize large differences in value length
-    'entropy_gap': 10,            # Penalize dissimilar information entropy
-    'master_fill_rate': 100,      # Prefer well-populated master fields
-    'enrichment_fill_rate': 100    # Prefer well-populated enrichment fields
-}
-
 def load_data(dbt):
     print("------------------------------------------------------------")
     print("Step 1: Loading input data...")
@@ -53,8 +32,8 @@ def load_data(dbt):
     print(f"✔ Data on {len(dfs)} datasets successfully loaded from Snowflake\n")
     return dfs
 
-def ask_chatgpt(prompt, system):
-    response = Complete(model="openai-gpt-4.1", prompt=f'{system}\n{prompt}', options=CompleteOptions(temperature=0, top_p=1, max_tokens=1000))
+def ask_chatgpt(prompt, system, llm_model, llm_temp, llm_top_p, llm_max_tokens):
+    response = Complete(model=llm_model, prompt=f'{system}\n{prompt}', options=CompleteOptions(temperature=llm_temp, top_p=llm_top_p, max_tokens=llm_max_tokens))
     return response.strip()
 
 def find_filter_columns(matches_df, overlap_threshold):
@@ -73,7 +52,7 @@ def find_filter_columns(matches_df, overlap_threshold):
             filter_fields.setdefault(row['enrichment_dataset'.upper()], []).append(pair)
     return mapped_fields, filter_fields
 
-def translate_non_english_columns(session, dfs, mapped_fields_by_dataset):
+def translate_non_english_columns(session, dfs, mapped_fields_by_dataset, translation_llm_model):
     _ENGLISH_ASCII_FULLMATCH = r'[A-Za-z0-9\s.,&()\-\'"]+'
 
     seen = set()
@@ -108,9 +87,9 @@ def translate_non_english_columns(session, dfs, mapped_fields_by_dataset):
                 translations = to_translate.select(
                     col("v").alias("v"),
                     sql_expr(
-                        """
+                        f"""
                         AI_COMPLETE(
-                            'openai-gpt-4.1',
+                            '{translation_llm_model}',
                             'Forget all previous instructions. '
                             || 'You are a translation expert. Your task is to translate the following text into English: '
                             || v
@@ -132,12 +111,12 @@ def translate_non_english_columns(session, dfs, mapped_fields_by_dataset):
 
     return out
 
-def translate_nonenglish_entries(session, dfs, final_matches):
+def translate_nonenglish_entries(session, dfs, final_matches, translation_llm_model, overlap_threshold):
     print("------------------------------------------------------------")
     print("Step 7: Translating non-English values in matched fields...")
     print("------------------------------------------------------------")
-    mapped_fields_by_dataset, _ = find_filter_columns(final_matches, overlap_threshold=75)
-    dfs = translate_non_english_columns(session, dfs, mapped_fields_by_dataset)
+    mapped_fields_by_dataset, _ = find_filter_columns(final_matches, overlap_threshold)
+    dfs = translate_non_english_columns(session, dfs, mapped_fields_by_dataset, translation_llm_model)
 
     dfs_dict = {}
 
@@ -160,10 +139,10 @@ def normalize(text):
     if pd.isna(text): return ""
     return re.sub(r'\s+', ' ', re.sub(r'[^\w\s]', '', str(text).lower().strip()))
 
-def apply_column_transforms(session, dfs, final_matches):
+def apply_column_transforms(session, dfs, final_matches, llm_model, llm_temp, llm_top_p, llm_max_tokens, overlap_threshold):
     print("\nStep 8: Applying transformations to the DataFrames based on the final matches.")
 
-    mapped_fields_by_dataset, filter_fields_by_dataset = find_filter_columns(final_matches, overlap_threshold=75)
+    mapped_fields_by_dataset, filter_fields_by_dataset = find_filter_columns(final_matches, overlap_threshold)
 
     out = dict(dfs)
 
@@ -206,7 +185,8 @@ Your output must be a single Python function called `transform(value)`, which im
 
             response = ask_chatgpt(
                 prompt,
-                system="Provide only Python code as your response. No explanations. No markdown formatting."
+                "Provide only Python code as your response. No explanations. No markdown formatting.",
+                llm_model, llm_temp, llm_top_p, llm_max_tokens
             )
 
             cleaned_response = (
@@ -260,11 +240,11 @@ AS
 
     return out
 
-def apply_gpt_column_transforms(session, dfs, final_matches):
+def apply_gpt_column_transforms(session, dfs, final_matches, llm_model, llm_temp, llm_top_p, llm_max_tokens, overlap_threshold):
     print("------------------------------------------------------------")
     print("Step 8: Applying column transformation functions...")
     print("------------------------------------------------------------")
-    dfs = apply_column_transforms(session, dfs, final_matches)
+    dfs = apply_column_transforms(session, dfs, final_matches, llm_model, llm_temp, llm_top_p, llm_max_tokens, overlap_threshold)
     dfs_dict = {}
 
     for name, df in dfs.items():
@@ -363,17 +343,17 @@ def _normalize_expr(col_expr):
     s = F.trim(s)
     return s
 
-def _build_embedding_lookup(session, df_values, table_fqn):
+def _build_embedding_lookup(session, df_values, table_fqn, embed_model):
     # df_values: single column DF with column name "NORM"
     # table_fqn: fully qualified table name
     df_emb = df_values.select(
         F.col("NORM"),
-        embed_text_1024("snowflake-arctic-embed-l-v2.0", F.col("NORM")).as_("EMB"),
+        embed_text_1024(embed_model, F.col("NORM")).as_("EMB"),
     )
     df_emb.write.mode("overwrite").save_as_table(table_fqn)
     return session.table(table_fqn)
 
-def collect_matching_rows(session, dfs, df_cross, mappings, dataset, filter_fields_by_dataset, top_n_most_similar):
+def collect_matching_rows(session, dfs, df_cross, mappings, dataset, filter_fields_by_dataset, top_n, embed_model):
     filters_for_dataset = filter_fields_by_dataset.get(dataset, []) or []
     non_filters = [pair for pair in mappings if pair not in filters_for_dataset]
 
@@ -409,7 +389,7 @@ def collect_matching_rows(session, dfs, df_cross, mappings, dataset, filter_fiel
             .where(F.col("NORM") != F.lit(""))
             .distinct()
         )
-        enr_lookup = _build_embedding_lookup(session, enr_vals, enr_lookup_table)
+        enr_lookup = _build_embedding_lookup(session, enr_vals, enr_lookup_table, embed_model)
 
         # Build master embedding lookup for this master column
         mst_lookup_table = (
@@ -423,7 +403,7 @@ def collect_matching_rows(session, dfs, df_cross, mappings, dataset, filter_fiel
             .where(F.col("NORM") != F.lit(""))
             .distinct()
         )
-        mst_lookup = _build_embedding_lookup(session, mst_vals, mst_lookup_table)
+        mst_lookup = _build_embedding_lookup(session, mst_vals, mst_lookup_table, embed_model)
 
         # Join embeddings onto the cross DF
         enr_emb_col = f"EMB__E__{_safe_ident_piece(dataset)}__{_safe_ident_piece(e_col)}".upper()
@@ -508,13 +488,13 @@ def collect_matching_rows(session, dfs, df_cross, mappings, dataset, filter_fiel
     df_final = (
         df_final
         .with_column("rn".upper(), F.row_number().over(w_topn))
-        .filter(F.col("rn".upper()) <= F.lit(int(top_n_most_similar)))
+        .filter(F.col("rn".upper()) <= F.lit(int(top_n)))
         .drop("rn".upper())
     )
 
     return df_final
 
-def embed_match_rows(session, dfs, final_matches, overlap_threshold=75, top_n_most_similar=10):
+def embed_match_rows(session, dfs, final_matches, overlap_threshold, top_n, embed_model):
     mapped_fields_by_dataset, filter_fields_by_dataset = find_filter_columns(final_matches, overlap_threshold)
 
     print(
@@ -535,7 +515,8 @@ def embed_match_rows(session, dfs, final_matches, overlap_threshold=75, top_n_mo
             mappings,
             dataset,
             filter_fields_by_dataset,
-            top_n_most_similar,
+            top_n,
+            embed_model
         )
         out_df = df_matches if out_df is None else out_df.union_all(df_matches)
 
@@ -554,7 +535,7 @@ def embed_match_rows(session, dfs, final_matches, overlap_threshold=75, top_n_mo
 
     return out_df
 
-def get_embed_match_rows(dbt, session, dfs, final_matches):
+def get_embed_match_rows(dbt, session, dfs, final_matches, overlap_threshold, top_n, embed_model):
     # TODO: Ensure the ordering of indices is deterministic across runs (likely add another column to all datasets for an index that can be used)
     print("------------------------------------------------------------")
     print("Step 9: Matching rows across datasets with embeddings...")
@@ -564,8 +545,9 @@ def get_embed_match_rows(dbt, session, dfs, final_matches):
         session,
         dfs,
         final_matches,
-        overlap_threshold=75,
-        top_n_most_similar=TOP_N_MOST_SIMILAR,
+        overlap_threshold,
+        top_n,
+        embed_model
     )
 
     matches_df = matches_df.sort(
@@ -590,9 +572,17 @@ def model(dbt, session):
     dfs = load_data(dbt)
     final_matches = dbt.ref("raw_pos_step6_final_column_matches")
 
+    llm_settings = dbt.config.get("config")["llm_settings"]
+    llm_model, llm_temp, llm_top_p, llm_max_tokens = llm_settings['model'], llm_settings['temperature'], llm_settings['top_p'], llm_settings['max_tokens']
+
+    FT = dbt.config.get("config")["feature_thresholds"]
+    overlap_threshold, top_n = FT['overlap_threshold'], FT['embedding_top_n']
+
+    embed_model = dbt.config.get("config")["embedding_settings"]["model"]
+
     # Since we have to return a table, we do these three steps (Steps 7, 8, 9) together
-    dfs = translate_nonenglish_entries(session, dfs, final_matches)
-    dfs = apply_gpt_column_transforms(session, dfs, final_matches)
-    matches = get_embed_match_rows(dbt, session, dfs, final_matches)
+    dfs = translate_nonenglish_entries(session, dfs, final_matches, llm_model, overlap_threshold)
+    dfs = apply_gpt_column_transforms(session, dfs, final_matches, llm_model, llm_temp, llm_top_p, llm_max_tokens, overlap_threshold)
+    matches = get_embed_match_rows(dbt, session, dfs, final_matches, overlap_threshold, top_n, embed_model)
     return matches
     
