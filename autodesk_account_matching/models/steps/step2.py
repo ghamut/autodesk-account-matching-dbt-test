@@ -16,23 +16,7 @@ import numpy as np
 from langdetect import detect_langs
 import re
 
-# TODO: Move to config
 MAX_WORKERS = min(64, (os.cpu_count() or 4) * 5)
-FT = {
-    'max_avg_length_diff': 12,              # Discard columns with large difference in value length
-    'min_fill_rate': 0.25,                  # Discard sparse columns
-    'min_description_similarity': 0.3,      # Minimum cosine similarity between description embeddings
-    'high_similarity_override_threshold': 0.8, # Allows keeping mismatched types if textually very similar
-    'max_entropy_gap': 2                    # Penalize columns with very different value diversity
-}
-FW = {
-    'fuzzy_ratio': 25,             # Importance of raw name similarity
-    'overlap_jaccard': 100,        # Shared value overlap (set-wise Jaccard index)
-    'avg_length_diff': 50,         # Penalize large differences in value length
-    'entropy_gap': 10,             # Penalize dissimilar information entropy
-    'master_fill_rate': 100,       # Prefer well-populated master fields
-    'enrichment_fill_rate': 100    # Prefer well-populated enrichment fields
-}
 
 def load_data(dbt):
     print("------------------------------------------------------------")
@@ -123,7 +107,7 @@ def generate_column_stats(table_df, most_common=10, sample_n=1_000):
 
     return col_info
 
-def describe_dataset(dataset, meta_data):
+def describe_dataset(dataset, meta_data, llm_model, llm_temp, llm_top_p, llm_max_tokens):
     prompt = """Do not use code to answer the question. Provide only code as your response, no explanations. Do not use markdown formatting.
 You will be provided with metadata for a set of columns in a dataset.
 Return a dictionary with one key for each column in the dataset. 
@@ -134,17 +118,20 @@ The metadata follows:
 """+f"""```json
 {json.dumps(meta_data[dataset])}
 ```"""
-    response = Complete(model="openai-gpt-4.1", prompt=prompt, options=CompleteOptions(temperature=0, top_p=1, max_tokens=1000))
+    response = Complete(model=llm_model, prompt=prompt, options=CompleteOptions(temperature=llm_temp, top_p=llm_top_p, max_tokens=llm_max_tokens))
     return dataset, json.loads(response.replace('```json', '').replace('```','').strip())    
 
 def generate_metadata(dbt, session, dfs):
     print("------------------------------------------------------------")
     print("Step 2: Generating column metadata and descriptions...")
     print("------------------------------------------------------------")
-    meta_data = {name: generate_column_stats(df) for name, df in dfs.items()}
+    step2_sampling_settings = dbt.config.get("config")["step2_sampling"]
+    meta_data = {name: generate_column_stats(df, step2_sampling_settings["num_examples"], step2_sampling_settings["num_samples_for_typing"]) for name, df in dfs.items()}
+    llm_settings = dbt.config.get("config")["llm_settings"]
+    llm_model, llm_temp, llm_top_p, llm_max_tokens = llm_settings['model'], llm_settings['temperature'], llm_settings['top_p'], llm_settings['max_tokens']
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = {
-            executor.submit(describe_dataset, dataset, meta_data): dataset
+            executor.submit(describe_dataset, dataset, meta_data, llm_model, llm_temp, llm_top_p, llm_max_tokens): dataset
             for dataset in meta_data
         }
         for future in tqdm(as_completed(futures), total=len(futures), desc="Describing columns"):
