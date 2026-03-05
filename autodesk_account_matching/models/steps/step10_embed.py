@@ -16,29 +16,10 @@ import numpy as np
 from langdetect import detect_langs
 import re
 
-MAX_WORKERS = min(64, (os.cpu_count() or 4) * 5)
-FT = {
-    'max_avg_length_diff': 12,              # Discard columns with large difference in value length
-    'min_fill_rate': 0.25,                  # Discard sparse columns
-    'min_description_similarity': 0.3,      # Minimum cosine similarity between description embeddings
-    'high_similarity_override_threshold': 0.8, # Allows keeping mismatched types if textually very similar
-    'max_entropy_gap': 2                    # Penalize columns with very different value diversity
-}
-FW = {
-    'fuzzy_ratio': 25,             # Importance of raw name similarity
-    'overlap_jaccard': 100,        # Shared value overlap (set-wise Jaccard index)
-    'avg_length_diff': 50,         # Penalize large differences in value length
-    'entropy_gap': 10,             # Penalize dissimilar information entropy
-    'master_fill_rate': 100,       # Prefer well-populated master fields
-    'enrichment_fill_rate': 100    # Prefer well-populated enrichment fields
-}
-
-def apply_llm_judgment_on_account_matches(session, matches):
+def apply_llm_judgment_on_account_matches(session, matches, llm_model, llm_temp, llm_top_p, llm_max_tokens):
     print("------------------------------------------------------------")
     print("Step 10: Applying final LLM pass to determine best matches...")
     print("------------------------------------------------------------")
-
-    model = "openai-gpt-4.1"
 
     system_preamble = (
         "You are an expert in entity resolution. Respond concisely and accurately.\n\n"
@@ -61,8 +42,9 @@ def apply_llm_judgment_on_account_matches(session, matches):
 
     # Deterministic settings; cap tokens so the justification stays short.
     model_parameters_obj = F.object_construct(
-        F.lit("temperature"), F.lit(0),
-        F.lit("max_tokens"), F.lit(200),
+        F.lit("temperature"), F.lit(llm_temp),
+        F.lit("max_tokens"), F.lit(llm_max_tokens),
+        F.lit("top_p"), F.lit(llm_top_p)
     )
 
     response_schema_obj = F.object_construct(
@@ -87,7 +69,7 @@ def apply_llm_judgment_on_account_matches(session, matches):
 
     llm_obj = F.call_function(
         "AI_COMPLETE",
-        F.lit(model),
+        F.lit(llm_model),
         prompt_col,
         model_parameters_obj,
         response_format_obj,
@@ -121,12 +103,15 @@ def apply_llm_judgment_on_account_matches(session, matches):
     return session.table('AUTODESK_ACCOUNT_MATCHING_DB.RAW.STEP10_FINAL_LLM_ROW_MATCHES_EMBED')
 
 def model(dbt, session):
-    # TODO: Adjust thresholds to get some Yes values
     dbt.ref('step7_8_9_embed')  # Make it so this runs after step9
     dbt.config(
         packages=['snowflake-snowpark-python','pandas','tqdm','httpx','rapidfuzz','langdetect','snowflake-ml-python'],
         python_version="3.11"
     )
     matches = session.table('AUTODESK_ACCOUNT_MATCHING_DB.RAW.STEP9_FINAL_TRANSFORMED_DFS_EMBED')
-    matches = apply_llm_judgment_on_account_matches(session, matches)
+
+    llm_settings = dbt.config.get("config")["llm_settings"]
+    llm_model, llm_temp, llm_top_p, llm_max_tokens = llm_settings['model'], llm_settings['temperature'], llm_settings['top_p'], llm_settings['max_tokens']
+    
+    matches = apply_llm_judgment_on_account_matches(session, matches, llm_model, llm_temp, llm_top_p, llm_max_tokens)
     return matches
