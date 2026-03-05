@@ -16,24 +16,7 @@ import numpy as np
 from langdetect import detect_langs
 import re
 
-MAX_WORKERS = min(64, (os.cpu_count() or 4) * 5)
-FT = {
-    'max_avg_length_diff': 12,              # Discard columns with large difference in value length
-    'min_fill_rate': 0.25,                  # Discard sparse columns
-    'min_description_similarity': 0.3,      # Minimum cosine similarity between description embeddings
-    'high_similarity_override_threshold': 0.8, # Allows keeping mismatched types if textually very similar
-    'max_entropy_gap': 2                    # Penalize columns with very different value diversity
-}
-FW = {
-    'fuzzy_ratio': 25,             # Importance of raw name similarity
-    'overlap_jaccard': 100,        # Shared value overlap (set-wise Jaccard index)
-    'avg_length_diff': 50,         # Penalize large differences in value length
-    'entropy_gap': 10,             # Penalize dissimilar information entropy
-    'master_fill_rate': 100,       # Prefer well-populated master fields
-    'enrichment_fill_rate': 100    # Prefer well-populated enrichment fields
-}
-
-def filter_results(dbt, session, result_df):
+def filter_results(dbt, session, result_df, FT):
     print("------------------------------------------------------------")
     print("Step 4: Filtering out column-pair results...")
     print("------------------------------------------------------------")
@@ -71,5 +54,6 @@ def model(dbt, session):
         python_version="3.11"
     )
     result_df = dbt.ref("raw_pos_step3_all_column_pair_features")
-    result_df_filtered = filter_results(dbt, session, result_df)
+    FT = dbt.config.get("config")["feature_thresholds"]
+    result_df_filtered = filter_results(dbt, session, result_df, FT)
     return result_df_filtered
