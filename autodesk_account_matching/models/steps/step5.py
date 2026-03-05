@@ -17,21 +17,6 @@ from langdetect import detect_langs
 import re
 
 MAX_WORKERS = min(64, (os.cpu_count() or 4) * 5)
-FT = {
-    'max_avg_length_diff': 12,              # Discard columns with large difference in value length
-    'min_fill_rate': 0.25,                  # Discard sparse columns
-    'min_description_similarity': 0.3,      # Minimum cosine similarity between description embeddings
-    'high_similarity_override_threshold': 0.8, # Allows keeping mismatched types if textually very similar
-    'max_entropy_gap': 2                    # Penalize columns with very different value diversity
-}
-FW = {
-    'fuzzy_ratio': 25,             # Importance of raw name similarity
-    'overlap_jaccard': 100,        # Shared value overlap (set-wise Jaccard index)
-    'avg_length_diff': 50,         # Penalize large differences in value length
-    'entropy_gap': 10,             # Penalize dissimilar information entropy
-    'master_fill_rate': 100,       # Prefer well-populated master fields
-    'enrichment_fill_rate': 100    # Prefer well-populated enrichment fields
-}
 
 # Now, for each row in the result_df_filtered, we will provide ChatGPT with a pair of columns, examplee values, and their descriptions; we will ask it to indicate if the two columns are the same or not.
 def generate_chatgpt_prompt(row):
@@ -64,14 +49,14 @@ Format your response exactly like this:
 Justification here."""
     return prompt
 
-def ask_chatgpt(prompt, system):
-    response = Complete(model="openai-gpt-4.1", prompt=f'{system}\n{prompt}', options=CompleteOptions(temperature=0, top_p=1, max_tokens=1000))
+def ask_chatgpt(prompt, system, llm_model, llm_temp, llm_top_p, llm_max_tokens):
+    response = Complete(model=llm_model, prompt=f'{system}\n{prompt}', options=CompleteOptions(temperature=llm_temp, top_p=llm_top_p, max_tokens=llm_max_tokens))
     return response.strip()
 
-def gpt_match_row(index_row):
+def gpt_match_row(index_row, llm_model, llm_temp, llm_top_p, llm_max_tokens):
     index, row = index_row
     prompt = generate_chatgpt_prompt(row)
-    response = ask_chatgpt(prompt, system="You are an expert in data matching. Provide only 'Yes' or 'No' as your response.")
+    response = ask_chatgpt(prompt, "You are an expert in data matching. Provide only 'Yes' or 'No' as your response.", llm_model, llm_temp, llm_top_p, llm_max_tokens)
     lines = response.splitlines()
     return {
         "index": index,
@@ -85,8 +70,10 @@ def apply_gpt_decision(dbt, session, result_df_filtered):
     print("------------------------------------------------------------")
     result_df_filtered = result_df_filtered.to_pandas()
     rows = list(result_df_filtered.iterrows())
+    llm_settings = dbt.config.get("config")["llm_settings"]
+    llm_model, llm_temp, llm_top_p, llm_max_tokens = llm_settings['model'], llm_settings['temperature'], llm_settings['top_p'], llm_settings['max_tokens']
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        futures = {executor.submit(gpt_match_row, row): i for i, row in enumerate(rows)}
+        futures = {executor.submit(gpt_match_row, row, llm_model, llm_temp, llm_top_p, llm_max_tokens): i for i, row in enumerate(rows)}
         for future in tqdm(as_completed(futures), total=len(futures), desc="Evaluating pairs via GPT"):
             result = future.result()
             result_df_filtered.at[result["index"], 'chatgpt_decision'.upper()] = result["decision"]
