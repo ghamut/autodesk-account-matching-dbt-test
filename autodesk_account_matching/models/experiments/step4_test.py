@@ -48,7 +48,7 @@ def filter_results(dbt, session, result_df, FT):
     return session.table("AUTODESK_ACCOUNT_MATCHING_DB.TEST.STEP4_FILTERED_COLUMN_PAIRS")
 
 def model(dbt, session):
-    # dbt.ref('step3_test')  # Make it so this runs after step3
+    dbt.ref('step3_test')  # Make it so this runs after step3
     dbt.config(
         packages=['snowflake-snowpark-python','pandas','tqdm','httpx','rapidfuzz','langdetect','snowflake-ml-python'],
         python_version="3.11"
