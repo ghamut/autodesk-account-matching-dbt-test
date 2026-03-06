@@ -53,35 +53,3 @@ models:
         step10_llm_calls:
           ask_llm_on_top_n: 3                       # The top N most similar master rows per enrichment row to send to an LLM for confirmation. If set to 0, only result(s) with threshold above backup_threshold below will be taken.
           backup_threshold: 0.9                     # If the above is set to 0, this determines the average similarity threshold for two accounts to automatically be considered "Yes".
-    experiments:
-      +materialized: table
-      +config:
-        feature_thresholds:
-          max_avg_length_diff: 12                   # Discard columns with large difference in value length
-          min_fill_rate: 0.25                       # Discard sparse columns
-          min_description_similarity: 0.3           # Minimum cosine similarity between description embeddings
-          high_similarity_override_threshold: 0.8   # Allows keeping mismatched types if textually very similar
-          max_entropy_gap: 2                        # Penalize columns with very different value diversity
-          overlap_threshold: 75                     # Minimum % overlap to count a field as filterable
-          fuzzy_similarity_threshold: 75            # Minimum fuzzy match for value-level alignment
-          embedding_top_n: 3                        # The top N most similar master rows per enrichment row to take (using cosine similarity of embeddings)
-        feature_weights:
-          fuzzy_ratio: 25                           # Importance of raw name similarity
-          overlap_jaccard: 100                      # Shared value overlap (set-wise Jaccard index)
-          avg_length_diff: 50                       # Penalize large differences in value length
-          entropy_gap: 10                           # Penalize dissimilar information entropy
-          master_fill_rate: 100                     # Prefer well-populated master fields
-          enrichment_fill_rate: 100                 # Prefer well-populated enrichment fields
-        llm_settings:
-          model: "openai-gpt-4.1"                   # Which Snowflake AI model to use (see list here: https://docs.snowflake.com/en/sql-reference/functions/ai_complete-single-string)
-          temperature: 0                            # Controls randomness of LLM output (0 = deterministic, 1 = high variance)
-          top_p: 1                                  # Nucleus sampling LLM parameter
-          max_tokens: 1000                          # Maximum number of tokens returned per LLM call
-        embedding_settings:
-          model: "snowflake-arctic-embed-l-v2.0"    # The Snowflake embeddings model to use (see list here: https://docs.snowflake.com/en/sql-reference/functions/ai_embed)
-        step2_sampling:
-          num_examples: 10                          # How many examples from each column to select
-          num_samples_for_typing: 1000              # How many samples from each column to view when determining the column's type
-        step10_llm_calls:
-          ask_llm_on_top_n: 3                       # The top N most similar master rows per enrichment row to send to an LLM for confirmation. If set to 0, only result(s) with threshold above backup_threshold below will be taken.
-          backup_threshold: 0.9                     # If the above is set to 0, this determines the average similarity threshold for two accounts to automatically be considered "Yes".
